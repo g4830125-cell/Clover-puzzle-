@@ -1,0 +1,18 @@
+import { CapacitorConfig } from '@capacitor/cli';
+
+const config: CapacitorConfig = {
+  appId: 'com.clover.puzzle',
+  appName: 'Clover Puzzle',
+  webDir: 'dist',
+  server: {
+    androidScheme: 'https'
+  },
+  plugins: {
+    CapacitorHttp: {
+      enabled: true,
+    },
+  },
+  backgroundColor: '#050508'
+};
+
+export default config;
