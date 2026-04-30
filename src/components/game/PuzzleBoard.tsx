@@ -89,7 +89,7 @@ export default function PuzzleBoard({ level, onWin, onFail, showHints, showGuide
 
   return (
     <div 
-      className="relative w-full aspect-square bg-gradient-to-br from-[#1e1b4b] to-[#09090b] rounded-3xl border border-arcane-purple/20 shadow-[0_0_40px_rgba(0,0,0,0.6)] overflow-hidden p-0" 
+      className="relative w-full aspect-square bg-gradient-to-br from-[#1e1b4b] to-[#09090b] rounded-3xl border border-arcane-purple/20 shadow-[0_0_40px_rgba(0,0,0,0.6)] overflow-hidden p-0 gpu-accelerated" 
       ref={containerRef}
     >
       {/* Background Dots/Pattern */}
@@ -97,8 +97,11 @@ export default function PuzzleBoard({ level, onWin, onFail, showHints, showGuide
 
       {/* Target Slots (Outline) */}
       {level.shapes.map((s, idx) => {
-        const shape = SHAPES[s.shapeId];
+        const shape = s.shapeId && SHAPES[s.shapeId];
         const isPlaced = placedIndices.has(idx);
+        
+        if (!shape) return null;
+
         return (
           <div
             key={`slot-${idx}`}

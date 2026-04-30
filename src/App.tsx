@@ -12,7 +12,7 @@ import Overlay from './components/game/Overlay';
 import { RECOVERY_COST } from './constants';
 import confetti from 'canvas-confetti';
 import { motion, AnimatePresence } from 'motion/react';
-import { Sparkles, ShoppingBag, Trophy, Home, Heart, Coins, Plus, ChevronRight, User } from 'lucide-react';
+import { Sparkles, ShoppingBag, Trophy, Home, Heart, Coins, Plus, ChevronRight, User, Users } from 'lucide-react';
 import CharacterAvatar from './components/game/CharacterAvatar';
 import { soundService } from './services/soundService';
 import StudioSplash from './components/ui/StudioSplash';
@@ -21,10 +21,13 @@ import { getApiUrl } from './lib/api';
 
 import Leaderboard from './components/game/Leaderboard';
 import NameEntry from './components/game/NameEntry';
+import MultiplayerLobby from './components/game/MultiplayerLobby';
+import MultiplayerGame from './components/game/MultiplayerGame';
 
 export default function App() {
   const { state, updateLevel, addGold, useLife, recoverLife, claimDailyReward, claimLaunchReward, setState } = useGameState();
-  const [view, setView] = useState<'menu' | 'playing' | 'shop' | 'achievements' | 'leaderboard'>('menu');
+  const [view, setView] = useState<'menu' | 'playing' | 'shop' | 'achievements' | 'leaderboard' | 'multiplayer_lobby' | 'multiplayer_game'>('menu');
+  const [multiplayerData, setMultiplayerData] = useState<any>(null);
   const [puzzleKey, setPuzzleKey] = useState(0);
   const [showHints, setShowHints] = useState(false);
   const [showGuidedSolution, setShowGuidedSolution] = useState(false);
@@ -135,8 +138,8 @@ export default function App() {
     syncProgress(state.currentLevel); // Sync current completed level
     
     confetti({
-      particleCount: 100,
-      spread: 70,
+      particleCount: 60,
+      spread: 60,
       origin: { y: 0.6 },
       colors: ['#a855f7', '#3b82f6', '#fbbf24']
     });
@@ -226,7 +229,7 @@ export default function App() {
 
       {/* Main Scaling Container */}
       <div 
-        className="relative flex items-center justify-center w-full h-full sm:h-[min(740px,95vh)] sm:max-w-[360px] origin-center sm:scale-[var(--app-scale)]" 
+        className="relative flex items-center justify-center w-full h-full sm:h-[min(740px,95vh)] sm:max-w-[360px] origin-center sm:scale-[var(--app-scale)] gpu-accelerated" 
         style={{ '--app-scale': 'min(1, min(calc((100vh - 40px) / 740), calc((100vw - 20px) / 360)))' } as any}
       >
         {/* Mobile Frame Container */}
@@ -236,7 +239,7 @@ export default function App() {
             {[...Array(6)].map((_, i) => (
               <div 
                 key={i}
-                className="mana-particle"
+                className="mana-particle gpu-accelerated"
                 style={{
                   left: `${Math.random() * 100}%`,
                   top: `${Math.random() * 100}%`,
@@ -310,6 +313,13 @@ export default function App() {
                   </button>
 
                   <div className="grid grid-cols-2 gap-3">
+                    <button
+                      onClick={() => setView('multiplayer_lobby')}
+                      className="col-span-2 p-5 rounded-2xl bg-arcane-purple/20 border border-arcane-purple/30 hover:bg-arcane-purple hover:border-arcane-purple transition-all flex items-center justify-center gap-3 group"
+                    >
+                      <Users className="text-arcane-purple group-hover:text-white transition-colors" size={24} />
+                      <span className="text-xs font-display font-black uppercase tracking-[0.2em] text-white group-hover:scale-105 transition-transform">Arena Battle</span>
+                    </button>
                     <button
                       onClick={() => setView('shop')}
                       className="p-4 rounded-2xl bg-black/40 border border-[#27272a] hover:border-arcane-purple/40 transition-colors flex flex-col items-center gap-2 group"
@@ -458,7 +468,7 @@ export default function App() {
                 <div className="w-8 h-1 bg-arcane-purple/30 rounded-full" />
               </div>
 
-              <div className="flex-1 overflow-y-auto pr-2 space-y-4 custom-scrollbar">
+              <div className="flex-1 overflow-y-auto pr-2 space-y-4 custom-scrollbar content-visibility-auto">
                 {state.achievements.map((a) => (
                   <div key={a.id} className={`p-4 rounded-2xl border transition-all ${a.isUnlocked ? 'bg-arcane-purple/10 border-arcane-purple/40' : 'bg-black/40 border-white/5 opacity-50'}`}>
                     <div className="flex items-center gap-4">
@@ -513,6 +523,48 @@ export default function App() {
                   Return to Gates
                 </button>
               </div>
+            </motion.div>
+          )}
+
+          {view === 'multiplayer_lobby' && (
+            <motion.div
+              key="multiplayer_lobby"
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 1.05 }}
+              className="flex-1 flex flex-col overflow-hidden px-4 py-2"
+            >
+              <MultiplayerLobby 
+                userId={state.userId || 'guest'}
+                userName={state.name || 'Mage'}
+                onBack={() => setView('menu')}
+                onMatchFound={(data) => {
+                  setMultiplayerData(data);
+                  setView('multiplayer_game');
+                }}
+              />
+            </motion.div>
+          )}
+
+          {view === 'multiplayer_game' && multiplayerData && (
+            <motion.div
+              key="multiplayer_game"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="flex-1 flex flex-col overflow-hidden px-4 py-2"
+            >
+              <MultiplayerGame 
+                roomId={multiplayerData.roomId}
+                mode={multiplayerData.type}
+                players={multiplayerData.players}
+                puzzleShapes={multiplayerData.puzzleShapes}
+                userId={state.userId || 'guest'}
+                onFinish={(gold) => {
+                  if (gold > 0) addGold(gold);
+                  setView('menu');
+                }}
+              />
             </motion.div>
           )}
         </AnimatePresence>

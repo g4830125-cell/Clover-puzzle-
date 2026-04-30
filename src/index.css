@@ -38,6 +38,18 @@
   @apply bg-arcane-purple/20 rounded-full hover:bg-arcane-purple/40 transition-colors;
 }
 
+.gpu-accelerated {
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  perspective: 1000px;
+  will-change: transform, opacity;
+}
+
+.content-visibility-auto {
+  content-visibility: auto;
+  contain-intrinsic-size: 0 100px;
+}
+
 ::-webkit-scrollbar {
   width: 8px;
 }

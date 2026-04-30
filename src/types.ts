@@ -9,6 +9,7 @@ export interface Shape {
   path: string; // SVG path data
   color: string;
   viewBox: string;
+  difficulty?: 'easy' | 'medium' | 'hard';
 }
 
 export interface Level {
@@ -52,4 +53,15 @@ export interface Achievement {
   isUnlocked: boolean;
   requirement: number;
   currentValue: number;
+}
+
+export type MultiplayerMode = '1v1' | '2v2';
+
+export interface MultiplayerPlayer {
+  name: string;
+  socketId: string;
+  team?: 'A' | 'B';
+  score?: number;
+  chances?: number;
+  isBot?: boolean;
 }

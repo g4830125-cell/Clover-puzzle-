@@ -56,7 +56,7 @@ export default function Leaderboard() {
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto custom-scrollbar p-6">
+      <div className="flex-1 overflow-y-auto custom-scrollbar p-6 content-visibility-auto">
         {loading && data.length === 0 ? (
           <div className="h-full flex flex-col items-center justify-center gap-4 text-slate-600">
             <Loader2 className="animate-spin" size={32} />

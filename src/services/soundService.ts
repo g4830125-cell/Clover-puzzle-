@@ -64,6 +64,22 @@ class SoundService {
     setTimeout(() => this.playTone(1318.51, 'sine', 0.4, 0.05), 200);
   }
 
+  playLose() {
+    this.playTone(220, 'sawtooth', 0.5, 0.05);
+  }
+
+  playSuccess() {
+    this.playTone(880, 'sine', 0.1, 0.05);
+  }
+
+  playError() {
+    this.playTone(110, 'sine', 0.1, 0.05);
+  }
+
+  playClick() {
+    this.playTone(660, 'sine', 0.05, 0.03);
+  }
+
   private isBgmPlaying = false;
   private bgmTimeout: any = null;
   startBGM() {

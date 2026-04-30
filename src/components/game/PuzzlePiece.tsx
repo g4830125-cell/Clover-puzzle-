@@ -17,6 +17,8 @@ interface PuzzlePieceProps {
 }
 
 function PuzzlePieceComponent({ shape, onPlace, initialX, initialY, size, rotation = 0 }: PuzzlePieceProps) {
+  if (!shape) return null;
+
   return (
     <motion.div
       drag
@@ -29,8 +31,8 @@ function PuzzlePieceComponent({ shape, onPlace, initialX, initialY, size, rotati
       whileHover={{ scale: 1.1, cursor: 'grab' }}
       whileTap={{ scale: 0.9, cursor: 'grabbing' }}
       whileDrag={{ scale: 1.2, zIndex: 50 }}
-      className="absolute z-10 bg-gradient-to-br from-[#7c3aed] to-[#4c1d95] rounded-xl border-2 border-arcane-gold shadow-[0_4px_15px_rgba(0,0,0,0.5),inset_0_0_10px_rgba(255,255,255,0.2)] p-2 touch-none"
-      style={{ width: size, height: size }}
+      className="absolute z-10 bg-gradient-to-br from-[#7c3aed] to-[#4c1d95] rounded-xl border-2 border-arcane-gold shadow-[0_4px_15px_rgba(0,0,0,0.5),inset_0_0_10px_rgba(255,255,255,0.2)] p-2 touch-none gpu-accelerated"
+      style={{ width: size, height: size, willChange: 'transform' }}
     >
       <svg
         viewBox={shape.viewBox}
