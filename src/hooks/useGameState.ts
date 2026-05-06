@@ -88,6 +88,19 @@ export function useGameState() {
     }));
   };
 
+  const addHint = (amount: number) => {
+    setState(prev => ({ ...prev, hints: prev.hints + amount }));
+  };
+
+  const claimWheelReward = (type: 'gold' | 'hint', amount: number) => {
+    setState(prev => ({
+      ...prev,
+      gold: type === 'gold' ? prev.gold + amount : prev.gold,
+      hints: type === 'hint' ? prev.hints + amount : prev.hints,
+      lastWheelSpin: new Date().toISOString(),
+    }));
+  };
+
   const claimLaunchReward = useCallback(() => {
     setState(prev => {
       if (prev.hasClaimedLaunchReward) return prev;
@@ -101,5 +114,5 @@ export function useGameState() {
 
   const resetGame = () => setState(INITIAL_GAME_STATE);
 
-  return { state, updateLevel, addGold, useLife, recoverLife, resetGame, setState, claimDailyReward, claimLaunchReward };
+  return { state, updateLevel, addGold, addHint, useLife, recoverLife, resetGame, setState, claimDailyReward, claimWheelReward, claimLaunchReward };
 }

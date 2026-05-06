@@ -33,9 +33,12 @@ export interface GameState {
   unlockedLevels: number;
   achievements: Achievement[];
   lastDailyReward: string | null;
+  lastWheelSpin: string | null;
+  hints: number;
   hasClaimedLaunchReward: boolean;
   userId?: string;
   name?: string;
+  email?: string;
 }
 
 export interface LeaderboardEntry {
@@ -58,10 +61,39 @@ export interface Achievement {
 export type MultiplayerMode = '1v1' | '2v2';
 
 export interface MultiplayerPlayer {
+  userId: string;
   name: string;
   socketId: string;
   team?: 'A' | 'B';
   score?: number;
   chances?: number;
   isBot?: boolean;
+}
+
+export interface Friend {
+  userId: string;
+  name: string;
+  level: number;
+  status: 'online' | 'offline' | 'in-game';
+}
+
+export interface FriendRequest {
+  fromId: string;
+  fromName: string;
+  toId: string;
+  timestamp: string;
+}
+
+export interface GameInvite {
+  id: string;
+  fromId: string;
+  fromName: string;
+  mode: MultiplayerMode;
+  timestamp: string;
+}
+
+export interface SocialState {
+  friends: Friend[];
+  requests: FriendRequest[];
+  invites: GameInvite[];
 }

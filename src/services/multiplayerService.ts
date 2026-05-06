@@ -51,6 +51,10 @@ class MultiplayerService {
     this.socket = null;
   }
 
+  getSocket() {
+    return this.socket;
+  }
+
   get id() {
     return this.socket?.id;
   }

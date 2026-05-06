@@ -9,6 +9,7 @@ import { motion } from 'motion/react';
 interface HUDProps {
   lives: number;
   gold: number;
+  hints: number;
   level: number;
   maxLevel: number;
   onRestart: () => void;
@@ -16,7 +17,7 @@ interface HUDProps {
   onGuidedHint: () => void;
 }
 
-export default function HUD({ lives, gold, level, maxLevel, onRestart, onHint, onGuidedHint }: HUDProps) {
+export default function HUD({ lives, gold, hints, level, maxLevel, onRestart, onHint, onGuidedHint }: HUDProps) {
   return (
     <div className="w-full max-w-md p-4 flex flex-col gap-4 text-arcane-gold font-sans">
       <div className="flex justify-between items-center bg-gradient-to-b from-[#18181b] to-[#09090b] px-4 py-3 rounded-2xl border border-[#27272a] shadow-inner">
@@ -72,10 +73,12 @@ export default function HUD({ lives, gold, level, maxLevel, onRestart, onHint, o
         <button
           onClick={onHint}
           className="p-3 bg-arcane-purple/10 hover:bg-arcane-purple/20 rounded-xl border border-arcane-purple/30 text-arcane-purple hover:text-arcane-purple-lighter transition-all flex items-center gap-2"
-          title="Small Hint"
+          title={hints > 0 ? `${hints} Free Hints Available` : "Small Hint (200G)"}
         >
           <Lightbulb size={18} />
-          <span className="text-[10px] font-bold uppercase tracking-widest px-1 border-l border-arcane-purple/30">200G</span>
+          <span className="text-[10px] font-bold uppercase tracking-widest px-1 border-l border-arcane-purple/30">
+            {hints > 0 ? `${hints}x` : '200G'}
+          </span>
         </button>
 
         <button

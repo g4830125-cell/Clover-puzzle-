@@ -46,7 +46,7 @@ export default function MultiplayerGame({ roomId, mode, players, puzzleShapes, u
   const [teamStats, setTeamStats] = useState<{A: number, B: number}>({A: 0, B: 0});
   const [currentRound, setCurrentRound] = useState(1);
   const [countdown, setCountdown] = useState(3);
-  const [timeLeft, setTimeLeft] = useState(mode === '1v1' ? 10 : 15);
+  const [timeLeft, setTimeLeft] = useState(mode === '1v1' ? 30 : 60);
   const [localChances, setLocalChances] = useState(3);
   const [allPlayers, setAllPlayers] = useState<MultiplayerPlayer[]>(players.map(p => ({ ...p, score: 0, chances: 3 })));
   const [results, setResults] = useState<any>(null);
@@ -136,6 +136,9 @@ export default function MultiplayerGame({ roomId, mode, players, puzzleShapes, u
 
   const handleGuess = useCallback((shapeId: string) => {
     if (status !== 'playing' || localChances <= 0) return;
+    
+    // Prevent guessing if already finished all shapes
+    if (currentShapeIndex >= currentPuzzleShapes.length) return;
 
     const isCorrect = shapeId === currentPuzzleShapes[currentShapeIndex];
     multiplayerService.submitGuess(roomId, shapeId, isCorrect);
@@ -144,6 +147,9 @@ export default function MultiplayerGame({ roomId, mode, players, puzzleShapes, u
       soundService.playSuccess();
       if (currentShapeIndex < currentPuzzleShapes.length - 1) {
         setCurrentShapeIndex(prev => prev + 1);
+      } else {
+        // Move to final 'completed' index
+        setCurrentShapeIndex(currentPuzzleShapes.length);
       }
     } else {
       soundService.playError();
@@ -367,42 +373,56 @@ export default function MultiplayerGame({ roomId, mode, players, puzzleShapes, u
       <div className="flex flex-col items-center justify-around gap-8 py-4 gpu-accelerated">
         <div className="text-center">
            <h3 className="text-xl font-display font-black text-white uppercase tracking-[0.2em]">
-             {mode === '1v1' ? `Arcane Duel ${currentShapeIndex + 1}/5` : `Round ${currentRound}: Alliance Rite ${currentShapeIndex + 1}/4`}
+             {mode === '1v1' ? `Arcane Duel ${Math.min(currentShapeIndex + 1, 15)}/15` : `Round ${currentRound}: Alliance Rite ${currentShapeIndex + 1}/4`}
            </h3>
            <p className="text-[10px] font-bold text-arcane-purple uppercase tracking-widest mt-1">Identify and tap the matching mana</p>
         </div>
 
-        <div className="w-56 h-56 relative bg-white/5 rounded-full p-8 border border-white/10 shadow-[0_0_50px_rgba(139,92,246,0.1)] flex-shrink-0">
-           {currentShape ? (
-             <svg viewBox={currentShape.viewBox} className="w-full h-full drop-shadow-[0_0_15px_rgba(139,92,246,0.5)]">
-               <path d={currentShape.path} fill={currentShape.color} className="animate-pulse" />
-             </svg>
-           ) : (
-             <div className="w-full h-full flex items-center justify-center">
-               <div className="w-12 h-12 border-4 border-arcane-purple/20 border-t-arcane-purple rounded-full animate-spin" />
-             </div>
-           )}
-        </div>
-
-        <div className="grid grid-cols-2 gap-4 w-full px-2 max-w-sm">
-           {shapeOptions.map(id => {
-             const shape = SHAPES[id];
-             if (!shape) return null;
-             return (
-               <motion.button
-                 key={id}
-                 whileTap={{ scale: 0.95 }}
-                 onClick={() => handleGuess(id)}
-                 disabled={localChances <= 0}
-                 className="aspect-square bg-black/40 border border-white/10 rounded-2xl hover:border-arcane-purple/50 transition-all flex items-center justify-center group p-6 gpu-accelerated"
-               >
-                 <svg viewBox={shape.viewBox} className="w-full h-full group-hover:scale-110 transition-transform duration-300">
-                   <path d={shape.path} fill="white" className="opacity-20 group-hover:opacity-60 transition-opacity duration-300" />
+        {currentShapeIndex >= currentPuzzleShapes.length ? (
+           <motion.div 
+             initial={{ opacity: 0, y: 20 }}
+             animate={{ opacity: 1, y: 0 }}
+             className="flex flex-col items-center justify-center p-12 bg-arcane-purple/10 border border-arcane-purple/40 rounded-3xl w-full aspect-square gpu-accelerated"
+           >
+             <Trophy size={64} className="text-arcane-gold mb-4 animate-bounce" />
+             <h4 className="text-2xl font-display font-black text-white uppercase tracking-widest text-center">Trial Complete!</h4>
+             <p className="text-xs text-arcane-purple font-black uppercase tracking-widest mt-2">Waiting for other seekers...</p>
+           </motion.div>
+        ) : (
+          <>
+            <div className="w-56 h-56 relative bg-white/5 rounded-full p-8 border border-white/10 shadow-[0_0_50px_rgba(139,92,246,0.1)] flex-shrink-0">
+               {currentShape ? (
+                 <svg viewBox={currentShape.viewBox} className="w-full h-full drop-shadow-[0_0_15px_rgba(139,92,246,0.5)]">
+                   <path d={currentShape.path} fill={currentShape.color} className="animate-pulse" />
                  </svg>
-               </motion.button>
-             );
-           })}
-        </div>
+               ) : (
+                 <div className="w-full h-full flex items-center justify-center">
+                   <div className="w-12 h-12 border-4 border-arcane-purple/20 border-t-arcane-purple rounded-full animate-spin" />
+                 </div>
+               )}
+            </div>
+
+            <div className="grid grid-cols-2 gap-4 w-full px-2 max-w-sm">
+               {shapeOptions.map(id => {
+                 const shape = SHAPES[id];
+                 if (!shape) return null;
+                 return (
+                   <motion.button
+                     key={id}
+                     whileTap={{ scale: 0.95 }}
+                     onClick={() => handleGuess(id)}
+                     disabled={localChances <= 0}
+                     className="aspect-square bg-black/40 border border-white/10 rounded-2xl hover:border-arcane-purple/50 transition-all flex items-center justify-center group p-6 gpu-accelerated"
+                   >
+                     <svg viewBox={shape.viewBox} className="w-full h-full group-hover:scale-110 transition-transform duration-300">
+                       <path d={shape.path} fill="white" className="opacity-20 group-hover:opacity-60 transition-opacity duration-300" />
+                     </svg>
+                   </motion.button>
+                 );
+               })}
+            </div>
+          </>
+        )}
       </div>
 
       {mode === '2v2' && (

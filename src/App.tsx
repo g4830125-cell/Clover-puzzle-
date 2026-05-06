@@ -9,11 +9,11 @@ import { ALL_LEVELS } from './lib/levels';
 import PuzzleBoard from './components/game/PuzzleBoard';
 import HUD from './components/game/HUD';
 import Overlay from './components/game/Overlay';
+import DailyWheel from './components/game/DailyWheel';
 import { RECOVERY_COST } from './constants';
 import confetti from 'canvas-confetti';
 import { motion, AnimatePresence } from 'motion/react';
-import { Sparkles, ShoppingBag, Trophy, Home, Heart, Coins, Plus, ChevronRight, User, Users } from 'lucide-react';
-import CharacterAvatar from './components/game/CharacterAvatar';
+import { Sparkles, ShoppingBag, Trophy, Home, Heart, Coins, Plus, ChevronRight, User, Users, Gift } from 'lucide-react';
 import { soundService } from './services/soundService';
 import StudioSplash from './components/ui/StudioSplash';
 import LiveStatus from './components/game/LiveStatus';
@@ -23,10 +23,18 @@ import Leaderboard from './components/game/Leaderboard';
 import NameEntry from './components/game/NameEntry';
 import MultiplayerLobby from './components/game/MultiplayerLobby';
 import MultiplayerGame from './components/game/MultiplayerGame';
+import { socialService } from './services/socialService';
+import FriendsOverlay from './components/social/FriendsOverlay';
+import InviteNotification from './components/social/InviteNotification';
+import { multiplayerService } from './services/multiplayerService';
+import { GameInvite } from './types';
 
 export default function App() {
-  const { state, updateLevel, addGold, useLife, recoverLife, claimDailyReward, claimLaunchReward, setState } = useGameState();
+  const { state, updateLevel, addGold, addHint, useLife, recoverLife, claimDailyReward, claimWheelReward, claimLaunchReward, setState } = useGameState();
   const [view, setView] = useState<'menu' | 'playing' | 'shop' | 'achievements' | 'leaderboard' | 'multiplayer_lobby' | 'multiplayer_game'>('menu');
+  const [isWheelOpen, setIsWheelOpen] = useState(false);
+  const [isSocialOpen, setIsSocialOpen] = useState(false);
+  const [activeInvite, setActiveInvite] = useState<GameInvite | null>(null);
   const [multiplayerData, setMultiplayerData] = useState<any>(null);
   const [puzzleKey, setPuzzleKey] = useState(0);
   const [showHints, setShowHints] = useState(false);
@@ -45,7 +53,12 @@ export default function App() {
   };
 
   const useHint = () => {
-    if (state.gold >= HINT_COST && !showHints) {
+    if (state.hints > 0 && !showHints) {
+      setState(prev => ({ ...prev, hints: prev.hints - 1 }));
+      setShowHints(true);
+      soundService.playMagic();
+      setTimeout(() => setShowHints(false), 5000);
+    } else if (state.gold >= HINT_COST && !showHints) {
       addGold(-HINT_COST);
       setShowHints(true);
       soundService.playCoin();
@@ -88,8 +101,38 @@ export default function App() {
       setIsSplashing(false);
     }, 3200);
 
-    return () => clearTimeout(splashTimer);
-  }, []);
+    // Initialize multiplayer and social socket
+    multiplayerService.connect();
+    const socket = multiplayerService.getSocket();
+    if (socket && state.userId) {
+      socialService.init(socket, state.userId, state.name || 'Mage', state.email);
+    }
+
+    const unsubMatch = multiplayerService.on('match_found', (data) => {
+      setMultiplayerData(data);
+      setView('multiplayer_game');
+      setIsSocialOpen(false); // Close social hub
+      setActiveInvite(null); // Clear any pending invite
+      socialService.refreshSocialData();
+    });
+
+    const unsubInvite = multiplayerService.on('game_invite_received', (invite: GameInvite) => {
+      setActiveInvite(invite);
+      soundService.playMagic();
+    });
+
+    const unsubAccepted = multiplayerService.on('invite_accepted', (data) => {
+      setActiveInvite(null);
+      // Actual matchFound will follow
+    });
+
+    return () => {
+      clearTimeout(splashTimer);
+      unsubMatch();
+      unsubInvite();
+      unsubAccepted();
+    };
+  }, [state.userId, state.name]);
 
   useEffect(() => {
     if (!isSplashing) {
@@ -115,7 +158,7 @@ export default function App() {
 
   const syncProgress = useCallback(async (level: number) => {
     try {
-      await fetch(getApiUrl('/api/leaderboard'), {
+      const response = await fetch(getApiUrl('/api/leaderboard'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -125,8 +168,13 @@ export default function App() {
           isTest: state.userId === 'dev-test-account' || state.userId === 'g4830125@gmail.com'
         })
       });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Server responded with ${response.status}: ${errorText}`);
+      }
     } catch (e) {
-      console.error('Failed to sync progress');
+      console.error('Failed to sync progress:', e);
     }
   }, [state.userId, state.name]);
 
@@ -203,7 +251,14 @@ export default function App() {
         level: state.currentLevel,
         isTest: state.userId === 'g4830125@gmail.com'
       })
-    }).catch(console.error);
+    })
+    .then(async (res) => {
+      if (!res.ok) {
+        const text = await res.text();
+        console.error('Leaderboard name sync failed:', res.status, text);
+      }
+    })
+    .catch(err => console.error('Leaderboard name sync network error:', err));
   };
 
   return (
@@ -267,15 +322,21 @@ export default function App() {
               exit={{ opacity: 0, scale: 0.95 }}
               className="flex-1 flex flex-col p-6 pt-10 relative overflow-y-auto custom-scrollbar"
             >
-              <div className="mb-6 w-full shrink-0">
-                <CharacterAvatar 
-                  image="https://images.unsplash.com/photo-1549490349-8643362247b5?q=80&w=200&h=200&auto=format&fit=crop"
-                  name="Asta"
-                  message="Never give up! This selection ceremony is ours to win!"
-                />
-              </div>
-
-              <div className="flex-1 flex flex-col items-center justify-center gap-8 text-center py-4">
+              <div className="flex-1 flex flex-col items-center justify-center gap-12 text-center py-4">
+                <div className="flex flex-wrap items-center justify-center gap-4">
+                  <button 
+                    onClick={() => setIsNamingOpen(true)}
+                    className="p-4 bg-white/5 border border-white/10 rounded-2xl hover:bg-white/10 transition-all group"
+                  >
+                    <User className="text-arcane-purple group-hover:scale-110 transition-transform" />
+                  </button>
+                  <button 
+                    onClick={() => setIsSocialOpen(true)}
+                    className="p-4 bg-white/5 border border-white/10 rounded-2xl hover:bg-white/10 transition-all group relative"
+                  >
+                    <Users className="text-arcane-gold group-hover:scale-110 transition-transform" />
+                  </button>
+                </div>
                 <div className="relative shrink-0">
                   <motion.div
                     animate={{ rotate: 360 }}
@@ -319,6 +380,13 @@ export default function App() {
                     >
                       <Users className="text-arcane-purple group-hover:text-white transition-colors" size={24} />
                       <span className="text-xs font-display font-black uppercase tracking-[0.2em] text-white group-hover:scale-105 transition-transform">Arena Battle</span>
+                    </button>
+                    <button
+                      onClick={() => setIsWheelOpen(true)}
+                      className="col-span-2 p-5 rounded-2xl bg-gradient-to-tr from-arcane-gold/20 to-transparent border border-arcane-gold/30 hover:from-arcane-gold hover:to-arcane-gold transition-all flex items-center justify-center gap-3 group"
+                    >
+                      <Gift className="text-arcane-gold group-hover:text-slate-950 transition-colors" size={24} />
+                      <span className="text-xs font-display font-black uppercase tracking-[0.2em] text-white group-hover:text-slate-950 group-hover:scale-105 transition-transform">Daily Ritual</span>
                     </button>
                     <button
                       onClick={() => setView('shop')}
@@ -365,6 +433,7 @@ export default function App() {
               <HUD
                 lives={state.lives}
                 gold={state.gold}
+                hints={state.hints}
                 level={state.currentLevel}
                 maxLevel={100}
                 onRestart={restartLevel}
@@ -575,6 +644,38 @@ export default function App() {
           isChanging={!!state.name}
           onComplete={handleNameComplete}
           onCancel={state.name ? () => setIsNamingOpen(false) : undefined}
+        />
+
+        <AnimatePresence>
+          {isWheelOpen && (
+            <DailyWheel 
+              lastSpin={state.lastWheelSpin}
+              onClaim={claimWheelReward}
+              onClose={() => setIsWheelOpen(false)}
+              userEmail={state.userId}
+            />
+          )}
+        </AnimatePresence>
+
+        <AnimatePresence>
+          {isSocialOpen && (
+            <FriendsOverlay 
+              onClose={() => setIsSocialOpen(false)}
+              userId={state.userId || 'guest'}
+              userEmail={state.email}
+            />
+          )}
+        </AnimatePresence>
+
+        <InviteNotification 
+          invite={activeInvite}
+          onAccept={() => {
+            if (activeInvite) {
+              socialService.acceptGameInvite(activeInvite);
+              setActiveInvite(null);
+            }
+          }}
+          onDecline={() => setActiveInvite(null)}
         />
       </div>
     </div>
