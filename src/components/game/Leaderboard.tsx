@@ -19,7 +19,7 @@ export default function Leaderboard() {
       setData(json);
       setError(null);
     } catch (err) {
-      setError('Could not reach the Clover Network');
+      setError('Could not reach the Mana Network');
     } finally {
       setLoading(false);
     }
@@ -135,7 +135,7 @@ export default function Leaderboard() {
       
       <div className="p-6 shrink-0 border-t border-white/5 bg-[#0a0a0c]/80 backdrop-blur-md">
         <p className="text-[8px] text-center text-slate-600 uppercase tracking-[0.25em] leading-relaxed">
-          The Clover Network ensures all data is strictly verified through real gameplay progression. No simulations allowed.
+          The Mana Network ensures all data is strictly verified through real gameplay progression. No simulations allowed.
         </p>
       </div>
     </div>

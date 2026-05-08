@@ -75,7 +75,7 @@ export const FPSCounter: React.FC<FPSCounterProps> = ({ settings }) => {
     <motion.div 
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className={`fixed bottom-6 right-6 sm:bottom-4 sm:right-4 z-[100] flex items-center gap-2 px-3 py-1.5 bg-[#09090b]/60 backdrop-blur-md border border-white/10 rounded-full pointer-events-none select-none transition-all duration-300 ${getGlowColor()}`}
+      className={`fixed bottom-6 right-6 sm:bottom-4 sm:right-4 z-[150] flex items-center gap-2 px-3 py-1.5 bg-[#09090b]/60 backdrop-blur-md border border-white/10 rounded-full pointer-events-none select-none transition-all duration-300 ${getGlowColor()}`}
     >
       <div className={`flex items-center justify-center ${getStatusColor()}`}>
         <Activity size={10} className={status === 'low' ? 'animate-pulse' : ''} />

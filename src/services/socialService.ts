@@ -1,5 +1,6 @@
 import { io, Socket } from 'socket.io-client';
 import { Friend, FriendRequest, SocialState, GameInvite } from '../types';
+import { multiplayerService } from './multiplayerService';
 
 class SocialService {
   private socket: Socket | null = null;
@@ -18,7 +19,7 @@ class SocialService {
     this.socket = socket;
     this.userId = userId;
 
-    socket.emit('register_user', { userId, name, email });
+    multiplayerService.registerUser(userId, name, email);
 
     socket.on('friend_request_received', (request: FriendRequest) => {
       this.state.requests = [request, ...this.state.requests];

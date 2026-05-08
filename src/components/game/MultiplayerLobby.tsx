@@ -22,10 +22,15 @@ export default function MultiplayerLobby({ userId, userName, userEmail, onMatchF
   const [error, setError] = useState<string | null>(null);
   const [botTestMode, setBotTestMode] = useState(false);
 
+  const [isCreating, setIsCreating] = useState(false);
+
   const isDeveloper = userEmail === 'g4830125@gmail.com';
 
   useEffect(() => {
-    multiplayerService.connect();
+    const socket = multiplayerService.getSocket();
+    if (!socket?.connected) {
+      multiplayerService.connect();
+    }
     
     const unsubMatch = multiplayerService.on('match_found', (data) => {
       soundService.playMagic();
@@ -33,7 +38,12 @@ export default function MultiplayerLobby({ userId, userName, userEmail, onMatchF
     });
 
     const unsubCreated = multiplayerService.on('ritual_created', (data) => {
+      if (createTimeoutRef.current) {
+        clearTimeout(createTimeoutRef.current);
+        createTimeoutRef.current = null;
+      }
       setActiveRitual(data);
+      setIsCreating(false);
     });
 
     const unsubJoined = multiplayerService.on('ritual_joined', (data) => {
@@ -44,6 +54,10 @@ export default function MultiplayerLobby({ userId, userName, userEmail, onMatchF
     const unsubError = multiplayerService.on('ritual_error', (data) => {
       setError(data.message);
       setIsJoining(false);
+      if (createTimeoutRef.current) {
+        clearTimeout(createTimeoutRef.current);
+        createTimeoutRef.current = null;
+      }
       if (joinTimeoutRef.current) {
         clearTimeout(joinTimeoutRef.current);
         joinTimeoutRef.current = null;
@@ -55,7 +69,7 @@ export default function MultiplayerLobby({ userId, userName, userEmail, onMatchF
       if (data.status === 'waiting') {
         setActiveRitual({
           roomId: data.roomId,
-          roomCode: '...', // We don't store code in GameRoom currently, but we can rejoin
+          roomCode: data.roomCode,
           mode: data.type,
           players: data.players
         });
@@ -89,8 +103,33 @@ export default function MultiplayerLobby({ userId, userName, userEmail, onMatchF
     }
   };
 
+  const createTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
+
   const handleCreateRitual = (mode: MultiplayerMode) => {
+    const socket = multiplayerService.getSocket();
+    if (!socket?.connected) {
+      setError("Connection to the ManaGrid plane lost. Reconnecting...");
+      multiplayerService.connect();
+      setTimeout(() => setError(null), 3000);
+      return;
+    }
+
     soundService.playClick();
+    setIsCreating(true);
+    setError(null);
+
+    if (createTimeoutRef.current) clearTimeout(createTimeoutRef.current);
+
+    createTimeoutRef.current = setTimeout(() => {
+      setIsCreating(prev => {
+        if (prev) {
+          setError("Mana flow interrupted. Could not initiate ritual.");
+          return false;
+        }
+        return false;
+      });
+    }, 10000);
+
     multiplayerService.createRitual(mode);
   };
 
@@ -99,6 +138,15 @@ export default function MultiplayerLobby({ userId, userName, userEmail, onMatchF
   const handleJoinRitual = (e: React.FormEvent) => {
     e.preventDefault();
     if (!roomCodeInput.trim()) return;
+
+    const socket = multiplayerService.getSocket();
+    if (!socket?.connected) {
+      setError("Connection lost. Trying to reconnect...");
+      multiplayerService.connect();
+      setTimeout(() => setError(null), 3000);
+      return;
+    }
+
     soundService.playClick();
     setIsJoining(true);
     setError(null);
@@ -165,7 +213,7 @@ export default function MultiplayerLobby({ userId, userName, userEmail, onMatchF
           <X size={24} />
         </button>
         <div className="text-center">
-          <h2 className="text-xl sm:text-2xl font-display font-black text-white uppercase tracking-[0.2em]">Clover Arena</h2>
+          <h2 className="text-xl sm:text-2xl font-display font-black text-white uppercase tracking-[0.2em]">Mana Arena</h2>
           <p className="text-[10px] font-bold text-arcane-purple uppercase tracking-widest leading-none">Real-time multiplayer</p>
         </div>
         <div className="w-10" />
@@ -193,7 +241,7 @@ export default function MultiplayerLobby({ userId, userName, userEmail, onMatchF
                   <Sword size={20} className="sm:size-24 text-arcane-purple" />
                 </div>
                 <div className="text-center">
-                  <h3 className="text-base sm:text-lg font-display font-black text-white uppercase tracking-widest leading-tight">Arcane Dual</h3>
+                  <h3 className="text-base sm:text-lg font-display font-black text-white uppercase tracking-widest leading-tight">ManaGrid Duel</h3>
                   <p className="text-[8px] sm:text-[9px] text-white/40 mt-1 uppercase tracking-widest">1 VS 1 Competitive</p>
                 </div>
                 <button
@@ -279,18 +327,18 @@ export default function MultiplayerLobby({ userId, userName, userEmail, onMatchF
                 <h4 className="text-[9px] sm:text-[10px] font-black uppercase tracking-widest text-arcane-purple">Initiate New Ritual</h4>
                 <div className="flex gap-2">
                   <button 
-                    disabled={isJoining}
+                    disabled={isJoining || isCreating}
                     onClick={() => handleCreateRitual('1v1')}
-                    className="flex-1 py-2.5 sm:py-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg sm:rounded-xl text-[8px] sm:text-[9px] font-black uppercase tracking-widest transition-all active:scale-95 touch-manipulation disabled:opacity-50"
+                    className="flex-1 py-2.5 sm:py-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg sm:rounded-xl text-[8px] sm:text-[9px] font-black uppercase tracking-widest transition-all active:scale-95 touch-manipulation disabled:opacity-50 flex items-center justify-center"
                   >
-                    Create 1V1
+                    {isCreating ? <Loader2 size={12} className="animate-spin" /> : 'Create 1V1'}
                   </button>
                   <button 
-                    disabled={isJoining}
+                    disabled={isJoining || isCreating}
                     onClick={() => handleCreateRitual('2v2')}
-                    className="flex-1 py-2.5 sm:py-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg sm:rounded-xl text-[8px] sm:text-[9px] font-black uppercase tracking-widest transition-all active:scale-95 touch-manipulation disabled:opacity-50"
+                    className="flex-1 py-2.5 sm:py-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg sm:rounded-xl text-[8px] sm:text-[9px] font-black uppercase tracking-widest transition-all active:scale-95 touch-manipulation disabled:opacity-50 flex items-center justify-center"
                   >
-                    Create 2V2
+                    {isCreating ? <Loader2 size={12} className="animate-spin" /> : 'Create 2V2'}
                   </button>
                 </div>
               </div>
@@ -353,7 +401,7 @@ export default function MultiplayerLobby({ userId, userName, userEmail, onMatchF
 
               <div className="flex items-center gap-3 bg-white/5 px-4 py-2 rounded-full border border-white/10">
                 <div className="w-1.5 h-1.5 bg-[#4ade80] rounded-full animate-pulse" />
-                <span className="text-[10px] font-black uppercase tracking-widest text-white/40">Searching Clover Network</span>
+                <span className="text-[10px] font-black uppercase tracking-widest text-white/40">Searching Mana Network</span>
               </div>
 
               <button

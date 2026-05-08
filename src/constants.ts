@@ -51,7 +51,7 @@ export const SHAPES: Record<string, Shape> = {
   },
   arcane_eye: {
     id: 'arcane_eye',
-    name: 'Arcane Eye',
+    name: 'ManaGrid Eye',
     path: 'M 10 50 Q 50 10 90 50 Q 50 90 10 50 M 50 25 A 25 25 0 1 1 50 75 A 25 25 0 1 1 50 25 M 50 35 A 15 15 0 1 0 50 65 A 15 15 0 1 0 50 35 M 45 50 A 5 5 0 1 1 55 50 A 5 5 0 1 1 45 50',
     color: '#a855f7',
     viewBox: '0 0 100 100',

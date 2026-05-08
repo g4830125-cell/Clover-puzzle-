@@ -10,7 +10,7 @@ export default function LiveStatus() {
     "Global Activity: High",
     "Rituals in Progress: Many",
     "Selection Ceremony: Active",
-    "Clover Network: Stable"
+    "Mana Network: Stable"
   ];
 
   useEffect(() => {

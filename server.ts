@@ -130,6 +130,7 @@ async function startServer() {
 
   interface GameRoom {
     id: string;
+    code: string;
     type: '1v1' | '2v2';
     players: Player[];
     status: 'waiting' | 'starting' | 'playing' | 'round_ended' | 'ended';
@@ -195,6 +196,7 @@ async function startServer() {
           console.log(`User ${name} reconnected to room ${room.id}`);
           socket.emit("reconnected", { 
             roomId: room.id, 
+            roomCode: room.code,
             status: room.status,
             type: room.type,
             players: room.players.map(p => ({
@@ -235,11 +237,16 @@ async function startServer() {
     });
 
     socket.on("create_ritual", ({ mode }) => {
+      console.log(`[SERVER] User ${socket.id} attempting to create ritual in mode ${mode}`);
       const userId = (socket as any).userId;
-      if (!userId) return;
+      if (!userId) {
+        console.error(`[SERVER] Create ritual error: User NOT registered for socket ${socket.id}`);
+        return socket.emit("ritual_error", { message: "You must be identified by the Mana Kingdom first. Reconnecting..." });
+      }
 
       const roomId = `ritual_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
       const roomCode = generateRitualCode();
+      console.log(`[SERVER] Room created: ${roomId} with code ${roomCode}`);
       
       const p: Player = {
         id: userId,
@@ -255,6 +262,7 @@ async function startServer() {
 
       const room: GameRoom = {
         id: roomId,
+        code: roomCode,
         type: mode,
         players: [p],
         status: 'waiting',
@@ -289,11 +297,16 @@ async function startServer() {
     });
 
     socket.on("join_ritual", ({ roomCode }) => {
+      console.log(`[SERVER] User ${socket.id} attempting to join ritual code: ${roomCode}`);
       const userId = (socket as any).userId;
-      if (!userId) return;
+      if (!userId) {
+        console.error(`[SERVER] Join ritual error: User NOT registered for socket ${socket.id}`);
+        return socket.emit("ritual_error", { message: "Identification required. Re-entering the magic flow..." });
+      }
 
       const roomId = roomCodes.get(roomCode.toUpperCase());
       if (!roomId || !rooms[roomId]) {
+        console.warn(`[SERVER] Ritual join failed: Code ${roomCode} not found in roomCodes or rooms`);
         return socket.emit("ritual_error", { message: "Ritual seal not found. Check the code." });
       }
 
@@ -677,6 +690,7 @@ async function startServer() {
 
       const room: GameRoom = {
         id: roomId,
+        code: '', // Not a private ritual
         type: invite.mode,
         players,
         status: 'starting',
@@ -785,6 +799,7 @@ async function startServer() {
             // Remove from lobby if just waiting
             const userId = (socket as any).userId;
             room.players = room.players.filter(p => p.socketId !== socket.id);
+            console.log(`[SERVER] Player ${userId} removed from room ${room.id} (${room.players.length} left)`);
             io.to(room.id).emit("ritual_updated", {
               players: room.players.map(p => ({
                 userId: p.userId,
@@ -793,6 +808,19 @@ async function startServer() {
                 socketId: p.socketId
               }))
             });
+
+            if (room.players.length === 0) {
+              console.log(`[SERVER] Room ${room.id} emptied, deleting`);
+              // Cleanup code
+              for (const [code, rId] of roomCodes.entries()) {
+                if (rId === room.id) {
+                  roomCodes.delete(code);
+                  console.log(`[SERVER] Room code ${code} removed`);
+                  break;
+                }
+              }
+              delete rooms[room.id];
+            }
           }
 
           if (room.status === 'playing') {
@@ -887,6 +915,7 @@ async function startServer() {
 
       const room: GameRoom = {
         id: roomId,
+        code: '', // Not a private ritual
         type: type as '1v1' | '2v2',
         players,
         status: 'starting',

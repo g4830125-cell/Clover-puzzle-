@@ -380,7 +380,7 @@ export default function MultiplayerGame({ roomId, mode, players, puzzleShapes, u
       <div className="flex flex-col items-center justify-around gap-8 py-4 gpu-accelerated">
         <div className="text-center">
            <h3 className="text-xl font-display font-black text-white uppercase tracking-[0.2em]">
-             {mode === '1v1' ? `Arcane Duel ${Math.min(currentShapeIndex + 1, 15)}/15` : `Round ${currentRound}: Alliance Rite ${currentShapeIndex + 1}/4`}
+             {mode === '1v1' ? `ManaGrid Duel ${Math.min(currentShapeIndex + 1, 15)}/15` : `Round ${currentRound}: Alliance Rite ${currentShapeIndex + 1}/4`}
            </h3>
            <p className="text-[10px] font-bold text-arcane-purple uppercase tracking-widest mt-1">Identify and tap the matching mana</p>
         </div>

@@ -108,8 +108,19 @@ export default function App() {
     // Initialize multiplayer and social socket
     multiplayerService.connect();
     const socket = multiplayerService.getSocket();
-    if (socket && state.userId) {
-      socialService.init(socket, state.userId, state.name || 'Mage', state.email);
+    
+    const handleInit = () => {
+      if (state.userId) {
+        socialService.init(socket!, state.userId, state.name || 'Mage', state.email);
+      }
+    };
+
+    if (socket) {
+      if (socket.connected) {
+        handleInit();
+      } else {
+        socket.once('connect', handleInit);
+      }
     }
 
     const unsubMatch = multiplayerService.on('match_found', (data) => {
@@ -376,10 +387,10 @@ export default function App() {
                   <h1 
                     className="text-4xl font-black tracking-tighter uppercase leading-none drop-shadow-[0_0_15px_rgba(139,92,246,0.3)] font-display text-white transition-transform active:scale-95"
                   >
-                    Clover<br/>
-                    <span className="text-arcane-purple">Puzzle</span>
+                    Mana<br/>
+                    <span className="text-arcane-purple">Grid</span>
                   </h1>
-                  <div className="text-arcane-gold/40 font-display text-[10px] mt-4 tracking-[0.4em] uppercase font-bold">Zogratis Selection</div>
+                  <div className="text-arcane-gold/40 font-display text-[10px] mt-4 tracking-[0.4em] uppercase font-bold">ManaGrid Selection</div>
                 </div>
 
                 <div className="my-2">
@@ -513,7 +524,7 @@ export default function App() {
                 <div className="w-20 h-20 bg-gradient-to-br from-yellow-500/20 to-transparent border border-yellow-500/30 rounded-3xl flex items-center justify-center shadow-lg">
                   <ShoppingBag size={40} className="text-yellow-500 drop-shadow-[0_0_10px_rgba(234,179,8,0.4)]" />
                 </div>
-                <h2 className="text-2xl font-display font-black text-white">Arcane Vault</h2>
+                <h2 className="text-2xl font-display font-black text-white">ManaGrid Vault</h2>
                 <div className="w-12 h-1 bg-yellow-500/40 rounded-full" />
               </div>
 
@@ -741,7 +752,7 @@ export default function App() {
           <Overlay
             type="boss"
             title="Premium Gift"
-            message="Welcome to Clover Puzzle! Since you're one of our first players, here is a special gift!"
+            message="Welcome to ManaGrid! Since you're one of our first players, here is a special gift!"
             reward={1000}
             actionText="Claim Gift"
             onAction={claimLaunchGift}
@@ -750,7 +761,7 @@ export default function App() {
         {overlay === 'win' && (
           <Overlay
             type="win"
-            title="Arcane Success!"
+            title="ManaGrid Success!"
             message="You have successfully bound the mana flow."
             reward={currentLevelData.reward}
             actionText="Next Level"

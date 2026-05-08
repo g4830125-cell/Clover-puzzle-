@@ -1,6 +1,6 @@
 {
-  "name": "Clover Puzzle",
-  "description": "A polished shape-matching puzzle game where you align mysterious symbols. Master increasingly complex puzzles, restore your hearts, and uncover secrets in this addictive experience.",
+  "name": "ManaGrid",
+  "description": "A polished shape-matching puzzle game with a ManaGrid theme. Master increasingly complex puzzles, restore your mana, and uncover secrets in this addictive experience.",
   "requestFramePermissions": [],
   "majorCapabilities": []
 }

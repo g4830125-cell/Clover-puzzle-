@@ -67,7 +67,7 @@ export function generateLevels(): Level[] {
 
     levels.push({
       id: i,
-      title: isBoss ? `Boss: Arcane Mastery ${i/10}` : `Path of Mana ${i}`,
+      title: isBoss ? `Boss: ManaGrid Mastery ${i/10}` : `Path of Mana ${i}`,
       shapes: levelShapes,
       isBoss,
       reward,

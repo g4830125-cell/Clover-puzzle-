@@ -5,6 +5,7 @@ import { getSocketUrl } from '../lib/api';
 class MultiplayerService {
   private socket: Socket | null = null;
   private listeners: Record<string, ((data: any) => void)[]> = {};
+  private registrationData: { userId: string, name: string, email?: string } | null = null;
 
   connect() {
     if (this.socket?.connected) return;
@@ -14,7 +15,8 @@ class MultiplayerService {
 
     this.socket = io(url, {
       timeout: 10000,
-      reconnectionAttempts: 5
+      reconnectionAttempts: 10,
+      reconnectionDelay: 1000,
     });
 
     this.socket.onAny((event, ...args) => {
@@ -23,8 +25,17 @@ class MultiplayerService {
       }
     });
 
-    this.socket.on('connect', () => console.log('Multiplayer connected'));
-    this.socket.on('disconnect', () => console.log('Multiplayer disconnected'));
+    this.socket.on('connect', () => {
+      console.log('Multiplayer connected:', this.socket?.id);
+      if (this.registrationData) {
+        console.log('Re-registering user:', this.registrationData.userId);
+        this.socket?.emit('register_user', this.registrationData);
+      }
+    });
+    
+    this.socket.on('disconnect', (reason) => {
+      console.log('Multiplayer disconnected:', reason);
+    });
 
     this.socket.on('ritual_pong', (timestamp: number) => {
       const ping = Date.now() - timestamp;
@@ -32,6 +43,13 @@ class MultiplayerService {
         this.listeners['ping_update'].forEach(cb => cb(ping));
       }
     });
+  }
+
+  registerUser(userId: string, name: string, email?: string) {
+    this.registrationData = { userId, name, email };
+    if (this.socket?.connected) {
+      this.socket.emit('register_user', this.registrationData);
+    }
   }
 
   ping() {

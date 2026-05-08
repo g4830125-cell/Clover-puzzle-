@@ -69,7 +69,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, s
                   <Settings size={18} />
                 </div>
                 <div>
-                  <h2 className="text-xs font-display font-black text-white uppercase tracking-widest text-left">Arcane Settings</h2>
+                  <h2 className="text-xs font-display font-black text-white uppercase tracking-widest text-left">ManaGrid Settings</h2>
                   <p className="text-[9px] text-white/40 uppercase tracking-widest text-left mt-0.5">Configure your grimoire</p>
                 </div>
               </div>

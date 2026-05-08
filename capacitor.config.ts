@@ -1,8 +1,8 @@
 import { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'com.clover.puzzle',
-  appName: 'Clover Puzzle',
+  appId: 'com.managrid.puzzle',
+  appName: 'ManaGrid',
   webDir: 'dist',
   server: {
     androidScheme: 'https'

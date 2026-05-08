@@ -122,7 +122,7 @@ export default function NameEntry({ isOpen, onComplete, onCancel, initialValue =
 
               <div className="flex items-center gap-2 mt-2">
                 <Sparkles size={12} className="text-arcane-gold/40" />
-                <span className="text-[9px] font-bold uppercase tracking-widest text-[#4ade80]/50">Verified in Clover Network</span>
+                <span className="text-[9px] font-bold uppercase tracking-widest text-[#4ade80]/50">Verified in Mana Network</span>
               </div>
             </div>
           </motion.div>
