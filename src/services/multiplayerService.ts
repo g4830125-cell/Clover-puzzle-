@@ -17,6 +17,9 @@ class MultiplayerService {
       timeout: 10000,
       reconnectionAttempts: 10,
       reconnectionDelay: 1000,
+      transports: ['websocket', 'polling'],
+      autoConnect: true,
+      secure: url.startsWith('https')
     });
 
     this.socket.onAny((event, ...args) => {
