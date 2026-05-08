@@ -6,19 +6,14 @@
   publish = "dist"
   command = "npm run build"
 
-# Example Proxy Configuration
-# To use this, replace the URL with your actual backend URL (e.g. from Google Cloud Run)
-# Once set up, the app will work seamlessly on any Netlify domain/branch/PR preview.
+# SPA Fallback: Ensures and React Router paths work on refresh
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
 
+# Proxy example for your backend (optional)
 # [[redirects]]
 #   from = "/api/*"
-#   to = "https://your-backend-service-url.a.run.app/api/:splat"
+#   to = "https://your-backend.a.run.app/api/:splat"
 #   status = 200
-
-# [[redirects]]
-#   from = "/socket.io/*"
-#   to = "https://your-backend-service-url.a.run.app/socket.io/:splat"
-#   status = 200
-
-# If you prefer NOT to use a proxy, simply set the VITE_API_URL 
-# environment variable in your Netlify site settings.
