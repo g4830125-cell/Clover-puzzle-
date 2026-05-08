@@ -156,11 +156,18 @@ export default function MultiplayerGame({ roomId, mode, players, puzzleShapes, u
     }
   }, [status, localChances, currentPuzzleShapes, currentShapeIndex, roomId]);
 
-  const getTeamProgress = useCallback((team: 'A' | 'B') => {
-    const teamPlayers = allPlayers.filter(p => p.team === team);
-    const score = teamPlayers.reduce((acc, p) => acc + (p.score || 0), 0);
-    return Math.min(100, (score / 4) * 100);
+  const teamAScore = useMemo(() => {
+    return allPlayers.filter(p => p.team === 'A').reduce((acc, p) => acc + (p.score || 0), 0);
   }, [allPlayers]);
+
+  const teamBScore = useMemo(() => {
+    return allPlayers.filter(p => p.team === 'B').reduce((acc, p) => acc + (p.score || 0), 0);
+  }, [allPlayers]);
+
+  const getTeamProgress = useCallback((team: 'A' | 'B') => {
+    const score = team === 'A' ? teamAScore : teamBScore;
+    return Math.min(100, (score / 4) * 100);
+  }, [teamAScore, teamBScore]);
 
   if (status === 'countdown') {
     return (

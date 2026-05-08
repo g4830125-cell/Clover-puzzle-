@@ -48,10 +48,10 @@ export default function Leaderboard() {
           
           <button 
             onClick={fetchLeaderboard}
-            className="p-2 transition-all hover:bg-white/5 rounded-lg active:scale-95 text-slate-500 hover:text-white"
+            className="p-3 transition-all hover:bg-white/10 rounded-xl active:scale-90 text-slate-500 hover:text-white touch-manipulation flex items-center justify-center shrink-0 border border-transparent hover:border-white/5"
             disabled={loading}
           >
-            <RefreshCw size={18} className={loading ? 'animate-spin' : ''} />
+            <RefreshCw size={20} className={`${loading ? 'animate-spin' : ''} pointer-events-none`} />
           </button>
         </div>
       </div>
@@ -77,8 +77,12 @@ export default function Leaderboard() {
                   key={entry.userId}
                   initial={{ opacity: 0, x: -10 }}
                   animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: index * 0.05 }}
-                  className={`group flex items-center justify-between p-4 rounded-2xl border transition-all ${
+                  transition={{ 
+                    delay: Math.min(index * 0.03, 0.5), 
+                    duration: 0.3,
+                    ease: "easeOut"
+                  }}
+                  className={`group flex items-center justify-between p-4 rounded-2xl border transition-all transform-gpu ${
                     isTest 
                       ? 'bg-blue-500/5 border-blue-500/20' 
                       : 'bg-white/[0.02] border-white/5 hover:bg-white/[0.05] hover:border-white/10'

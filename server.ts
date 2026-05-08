@@ -9,7 +9,51 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+const DATA_FILE = path.join(__dirname, "leaderboard.json");
+const SOCIAL_FILE = path.join(__dirname, "social.json");
+
+let dataCache: any[] = [];
+let socialCache: any = { friends: {}, requests: {} };
+
+async function loadInitialData() {
+  try {
+    if (!fs.existsSync(DATA_FILE)) fs.writeFileSync(DATA_FILE, JSON.stringify([]));
+    if (!fs.existsSync(SOCIAL_FILE)) fs.writeFileSync(SOCIAL_FILE, JSON.stringify({ friends: {}, requests: {} }));
+
+    const dataContent = fs.readFileSync(DATA_FILE, "utf-8");
+    dataCache = JSON.parse(dataContent || "[]");
+
+    const socialContent = fs.readFileSync(SOCIAL_FILE, "utf-8");
+    socialCache = JSON.parse(socialContent || "{\"friends\":{},\"requests\":{}}");
+
+    // Ensure Asta exists
+    if (!dataCache.some((u: any) => u.userId === 'bot_asta')) {
+      dataCache.push({ userId: 'bot_asta', name: 'Asta (Test Bot)', level: 42, updatedAt: new Date().toISOString(), isBot: true });
+      fs.writeFileSync(DATA_FILE, JSON.stringify(dataCache, null, 2));
+    }
+  } catch (err) {
+    console.error("Error loading initial data:", err);
+  }
+}
+
+async function saveMetadata() {
+  try {
+    await fs.promises.writeFile(DATA_FILE, JSON.stringify(dataCache, null, 2));
+  } catch (err) {
+    console.error("Error saving metadata:", err);
+  }
+}
+
+async function saveSocial() {
+  try {
+    await fs.promises.writeFile(SOCIAL_FILE, JSON.stringify(socialCache, null, 2));
+  } catch (err) {
+    console.error("Error saving social:", err);
+  }
+}
+
 async function startServer() {
+  await loadInitialData();
   const app = express();
   const httpServer = createServer(app);
   const io = new Server(httpServer, {
@@ -19,32 +63,16 @@ async function startServer() {
   });
 
   const PORT = 3000;
-  const DATA_FILE = path.join(__dirname, "leaderboard.json"); // We'll keep this name for backward compatibility but expand it
-  const SOCIAL_FILE = path.join(__dirname, "social.json");
 
   app.use(express.json());
-
-  // Initialize files
-  if (!fs.existsSync(DATA_FILE)) fs.writeFileSync(DATA_FILE, JSON.stringify([]));
-  if (!fs.existsSync(SOCIAL_FILE)) fs.writeFileSync(SOCIAL_FILE, JSON.stringify({ friends: {}, requests: {} }));
-
-  // Ensure Asta exists in the system
-  try {
-    const data = JSON.parse(fs.readFileSync(DATA_FILE, "utf-8"));
-    if (!data.some((u: any) => u.userId === 'bot_asta')) {
-      data.push({ userId: 'bot_asta', name: 'Asta (Test Bot)', level: 42, updatedAt: new Date().toISOString(), isBot: true });
-      fs.writeFileSync(DATA_FILE, JSON.stringify(data));
-    }
-  } catch (err) {}
 
   const userSockets = new Map<string, string>(); // userId -> socketId
 
   // API: Get Leaderboard
   app.get("/api/leaderboard", (req, res) => {
     try {
-      const data = JSON.parse(fs.readFileSync(DATA_FILE, "utf-8"));
       // Sort by level descending
-      const sorted = data.sort((a: any, b: any) => b.level - a.level).slice(0, 50);
+      const sorted = [...dataCache].sort((a: any, b: any) => b.level - a.level).slice(0, 50);
       res.json(sorted);
     } catch (error) {
       res.status(500).json({ error: "Failed to read leaderboard" });
@@ -52,35 +80,26 @@ async function startServer() {
   });
 
   // API: Submit Score
-  app.post("/api/leaderboard", (req, res) => {
+  app.post("/api/leaderboard", async (req, res) => {
     console.log('Leaderboard submission received:', req.body);
     const { userId, name, level, isTest } = req.body;
     
     if (!userId || !name || level === undefined) {
-      console.warn('Leaderboard submission missing fields:', { userId, name, level });
       return res.status(400).json({ error: "Missing required fields" });
     }
 
     try {
-      if (!fs.existsSync(DATA_FILE)) {
-        fs.writeFileSync(DATA_FILE, JSON.stringify([]));
-      }
-      const rawData = fs.readFileSync(DATA_FILE, "utf-8");
-      const data = JSON.parse(rawData || "[]");
-      const index = data.findIndex((p: any) => p.userId === userId);
-
+      const index = dataCache.findIndex((p: any) => p.userId === userId);
       const entryName = isTest ? `${name} (Test Player)` : name;
 
       if (index !== -1) {
-        // Update if higher level
-        if (level > data[index].level) {
-          data[index].level = level;
-          data[index].name = entryName;
-          data[index].updatedAt = new Date().toISOString();
+        if (level > dataCache[index].level) {
+          dataCache[index].level = level;
+          dataCache[index].name = entryName;
+          dataCache[index].updatedAt = new Date().toISOString();
         }
       } else {
-        // New entry
-        data.push({
+        dataCache.push({
           userId,
           name: entryName,
           level,
@@ -88,11 +107,9 @@ async function startServer() {
         });
       }
 
-      fs.writeFileSync(DATA_FILE, JSON.stringify(data));
-      console.log('Leaderboard updated successfully for:', userId);
+      await saveMetadata();
       res.json({ success: true });
     } catch (error) {
-      console.error('Leaderboard update error:', error);
       res.status(500).json({ error: "Failed to update leaderboard" });
     }
   });
@@ -127,6 +144,7 @@ async function startServer() {
   }
 
   const rooms: Record<string, GameRoom> = {};
+  const roomCodes = new Map<string, string>(); // ritualCode -> roomId
   const queues: Record<string, string[]> = {
     '1v1': [],
     '2v2': [],
@@ -140,6 +158,15 @@ async function startServer() {
     'hourglass_frame', 'dragon_wing', 'nova_star', 'omega_mark', 'void_orb', 'mystic_knot', 'sacred_crest', 
     'echo_wave', 'spirit_eye', 'pyre_stone', 'frost_shard'
   ];
+
+  function generateRitualCode(): string {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // Avoid ambiguous chars
+    let code = '';
+    for (let i = 0; i < 5; i++) {
+      code += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return code;
+  }
 
   function shuffleArray<T>(array: T[]): T[] {
     const newArray = [...array];
@@ -159,18 +186,44 @@ async function startServer() {
       (socket as any).userEmail = email;
       (socket as any).userData = { userId, name };
       
+      // Check for reconnection
+      Object.values(rooms).forEach(room => {
+        const player = room.players.find(p => p.userId === userId);
+        if (player) {
+          player.socketId = socket.id;
+          socket.join(room.id);
+          console.log(`User ${name} reconnected to room ${room.id}`);
+          socket.emit("reconnected", { 
+            roomId: room.id, 
+            status: room.status,
+            type: room.type,
+            players: room.players.map(p => ({
+              userId: p.userId,
+              name: p.name,
+              socketId: p.socketId,
+              team: p.team,
+              score: p.score,
+              chances: p.chances,
+              isBot: p.isBot
+            })),
+            currentRound: room.currentRound,
+            timeLeft: room.timeLeft
+          });
+          io.to(room.id).emit("player_reconnected", { userId, socketId: socket.id });
+        }
+      });
+      
       // Update existence in users file
       try {
-        const data = JSON.parse(fs.readFileSync(DATA_FILE, "utf-8"));
-        const userIndex = data.findIndex((u: any) => u.userId === userId);
+        const userIndex = dataCache.findIndex((u: any) => u.userId === userId);
         if (userIndex === -1) {
-          data.push({ userId, name, email, level: 1, updatedAt: new Date().toISOString() });
-          fs.writeFileSync(DATA_FILE, JSON.stringify(data));
+          dataCache.push({ userId, name, email, level: 1, updatedAt: new Date().toISOString() });
+          saveMetadata();
         } else {
           // Update existing user email if missing or changed
-          if (data[userIndex].email !== email) {
-            data[userIndex].email = email;
-            fs.writeFileSync(DATA_FILE, JSON.stringify(data));
+          if (dataCache[userIndex].email !== email) {
+            dataCache[userIndex].email = email;
+            saveMetadata();
           }
         }
       } catch (err) {}
@@ -181,10 +234,251 @@ async function startServer() {
       broadcastPresence(userId, 'online');
     });
 
+    socket.on("create_ritual", ({ mode }) => {
+      const userId = (socket as any).userId;
+      if (!userId) return;
+
+      const roomId = `ritual_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
+      const roomCode = generateRitualCode();
+      
+      const p: Player = {
+        id: userId,
+        userId: userId,
+        name: (socket as any).userData.name,
+        socketId: socket.id,
+        chances: 3,
+        score: 0,
+        isReady: true,
+        team: mode === '2v2' ? 'A' : 'A',
+        isBot: false
+      };
+
+      const room: GameRoom = {
+        id: roomId,
+        type: mode,
+        players: [p],
+        status: 'waiting',
+        allMatchShapes: [], 
+        puzzleShapes: [],
+        timeLeft: mode === '1v1' ? 30 : 60,
+        currentRound: 1,
+        teamAWins: 0,
+        teamBWins: 0
+      };
+
+      rooms[roomId] = room;
+      roomCodes.set(roomCode, roomId);
+      socket.join(roomId);
+
+      socket.emit("ritual_created", { 
+        roomId, 
+        roomCode, 
+        mode,
+        players: room.players.map(p => ({
+          userId: p.userId,
+          name: p.name,
+          team: p.team,
+          socketId: p.socketId
+        }))
+      });
+      console.log(`User ${p.name} created ritual room ${roomCode}`);
+    });
+
+    socket.on("ritual_ping", (timestamp) => {
+      socket.emit("ritual_pong", timestamp);
+    });
+
+    socket.on("join_ritual", ({ roomCode }) => {
+      const userId = (socket as any).userId;
+      if (!userId) return;
+
+      const roomId = roomCodes.get(roomCode.toUpperCase());
+      if (!roomId || !rooms[roomId]) {
+        return socket.emit("ritual_error", { message: "Ritual seal not found. Check the code." });
+      }
+
+      const room = rooms[roomId];
+      const maxPlayers = room.type === '1v1' ? 2 : 4;
+
+      if (room.players.length >= maxPlayers) {
+        return socket.emit("ritual_error", { message: "This ritual is already full." });
+      }
+
+      if (room.status !== 'waiting') {
+        return socket.emit("ritual_error", { message: "The ritual has already begun." });
+      }
+
+      // Check if already in
+      if (room.players.some(p => p.userId === userId)) {
+        return socket.emit("ritual_joined", { 
+          roomId, 
+          roomCode, 
+          mode: room.type,
+          players: room.players.map(p => ({
+            userId: p.userId,
+            name: p.name,
+            team: p.team,
+            socketId: p.socketId
+          }))
+        });
+      }
+
+      let team: 'A' | 'B' | undefined;
+      if (room.type === '2v2') {
+        const teamA = room.players.filter(p => p.team === 'A').length;
+        const teamB = room.players.filter(p => p.team === 'B').length;
+        team = teamA <= teamB ? 'A' : 'B';
+      } else {
+        team = room.players.length === 0 ? 'A' : 'B';
+      }
+
+      const p: Player = {
+        id: userId,
+        userId: userId,
+        name: (socket as any).userData.name,
+        socketId: socket.id,
+        chances: 3,
+        score: 0,
+        isReady: true,
+        team,
+        isBot: false
+      };
+
+      room.players.push(p);
+      socket.join(roomId);
+
+      io.to(roomId).emit("ritual_updated", {
+        players: room.players.map(p => ({
+          userId: p.userId,
+          name: p.name,
+          team: p.team,
+          socketId: p.socketId
+        }))
+      });
+
+      socket.emit("ritual_joined", { 
+        roomId, 
+        roomCode, 
+        mode: room.type,
+        players: room.players.map(p => ({
+          userId: p.userId,
+          name: p.name,
+          team: p.team,
+          socketId: p.socketId
+        }))
+      });
+      console.log(`User ${p.name} joined ritual room ${roomCode}`);
+
+      // Auto start if full? 
+      if (room.players.length === maxPlayers) {
+        // We can just wait for host or auto start
+      }
+    });
+
+    socket.on("start_ritual", ({ roomId }) => {
+      const room = rooms[roomId];
+      if (!room || room.status !== 'waiting') return;
+      
+      const userId = (socket as any).userId;
+      if (room.players[0].userId !== userId) return; // Only host can start
+
+      room.status = 'starting';
+      
+      const numShapes = room.type === '1v1' ? 15 : 12;
+      const allMatchShapes = shuffleArray(SHAPE_IDS).slice(0, numShapes);
+      const puzzleShapes = room.type === '1v1' ? allMatchShapes : allMatchShapes.slice(0, 4);
+      
+      room.allMatchShapes = allMatchShapes;
+      room.puzzleShapes = puzzleShapes;
+
+      io.to(roomId).emit("match_found", { 
+        roomId, 
+        type: room.type, 
+        players: room.players.map(p => ({ name: p.name, socketId: p.socketId, team: p.team, isBot: p.isBot })),
+        puzzleShapes
+      });
+
+      setTimeout(() => startRoomGame(roomId), 3000);
+    });
+
+    socket.on("leave_ritual", ({ roomId }) => {
+      const room = rooms[roomId];
+      if (!room || room.status !== 'waiting') return;
+
+      const userId = (socket as any).userId;
+      room.players = room.players.filter(p => p.userId !== userId);
+      socket.leave(roomId);
+
+      if (room.players.length === 0) {
+        // Find code to remove
+        for (const [code, rId] of roomCodes.entries()) {
+          if (rId === roomId) {
+            roomCodes.delete(code);
+            break;
+          }
+        }
+        delete rooms[roomId];
+      } else {
+        io.to(roomId).emit("ritual_updated", {
+          players: room.players.map(p => ({
+            userId: p.userId,
+            name: p.name,
+            team: p.team,
+            socketId: p.socketId
+          }))
+        });
+      }
+    });
+
+    socket.on("spawn_asta", ({ roomId }) => {
+      const room = rooms[roomId];
+      if (!room || room.status !== 'waiting') return;
+
+      const email = (socket as any).userEmail;
+      if (email !== 'g4830125@gmail.com') return; // Developer only
+
+      const botId = 'bot_asta';
+      if (room.players.some(p => p.userId === botId)) return;
+
+      const maxPlayers = room.type === '1v1' ? 2 : 4;
+      if (room.players.length >= maxPlayers) return;
+
+      let team: 'A' | 'B' | undefined;
+      if (room.type === '2v2') {
+        const teamA = room.players.filter(p => p.team === 'A').length;
+        const teamB = room.players.filter(p => p.team === 'B').length;
+        team = teamA <= teamB ? 'A' : 'B';
+      } else {
+        team = room.players.length === 0 ? 'A' : 'B';
+      }
+
+      const p: Player = {
+        id: botId,
+        userId: botId,
+        name: 'Asta',
+        socketId: 'bot_asta_s',
+        chances: 3,
+        score: 0,
+        isReady: true,
+        team,
+        isBot: true
+      };
+
+      room.players.push(p);
+      io.to(roomId).emit("ritual_updated", {
+        players: room.players.map(p => ({
+          userId: p.userId,
+          name: p.name,
+          team: p.team,
+          socketId: p.socketId
+        }))
+      });
+      console.log(`Bot Asta spawned in room ${roomId}`);
+    });
+
     socket.on("search_users", ({ query }, callback) => {
       try {
-        const users = JSON.parse(fs.readFileSync(DATA_FILE, "utf-8"));
-        const results = users
+        const results = dataCache
           .filter((u: any) => {
             // Hide specific test bot accounts from general search
             if (u.userId === 'bot_asta') {
@@ -205,19 +499,18 @@ async function startServer() {
       }
     });
 
-    socket.on("send_friend_request", ({ toId }) => {
+    socket.on("send_friend_request", async ({ toId }) => {
       const fromId = (socket as any).userId;
       if (!fromId || fromId === toId) return;
 
       try {
-        const social = JSON.parse(fs.readFileSync(SOCIAL_FILE, "utf-8"));
-        if (!social.requests[toId]) social.requests[toId] = [];
+        if (!socialCache.requests[toId]) socialCache.requests[toId] = [];
         
         // Check if already friends
-        if (social.friends[fromId]?.includes(toId)) return;
+        if (socialCache.friends[fromId]?.includes(toId)) return;
         
         // Avoid duplicates
-        if (social.requests[toId].some((r: any) => r.fromId === fromId)) return;
+        if (socialCache.requests[toId].some((r: any) => r.fromId === fromId)) return;
 
         const request = {
           fromId,
@@ -226,8 +519,8 @@ async function startServer() {
           timestamp: new Date().toISOString()
         };
         
-        social.requests[toId].push(request);
-        fs.writeFileSync(SOCIAL_FILE, JSON.stringify(social));
+        socialCache.requests[toId].push(request);
+        await saveSocial();
 
         // Notify recipient if online
         const toSocketId = userSockets.get(toId);
@@ -235,44 +528,41 @@ async function startServer() {
           io.to(toSocketId).emit("friend_request_received", request);
         } else if (toId === 'bot_asta') {
           // Auto-accept after a delay
-          setTimeout(() => {
-            const currentSocial = JSON.parse(fs.readFileSync(SOCIAL_FILE, "utf-8"));
-            if (!currentSocial.friends[fromId]) currentSocial.friends[fromId] = [];
-            if (!currentSocial.friends['bot_asta']) currentSocial.friends['bot_asta'] = [];
+          setTimeout(async () => {
+            if (!socialCache.friends[fromId]) socialCache.friends[fromId] = [];
+            if (!socialCache.friends['bot_asta']) socialCache.friends['bot_asta'] = [];
             
-            if (!currentSocial.friends[fromId].includes('bot_asta')) currentSocial.friends[fromId].push('bot_asta');
-            if (!currentSocial.friends['bot_asta'].includes(fromId)) currentSocial.friends['bot_asta'].push(fromId);
+            if (!socialCache.friends[fromId].includes('bot_asta')) socialCache.friends[fromId].push('bot_asta');
+            if (!socialCache.friends['bot_asta'].includes(fromId)) socialCache.friends['bot_asta'].push(fromId);
             
             // Remove request
-            currentSocial.requests['bot_asta'] = (currentSocial.requests['bot_asta'] || []).filter((r: any) => r.fromId !== fromId);
+            socialCache.requests['bot_asta'] = (socialCache.requests['bot_asta'] || []).filter((r: any) => r.fromId !== fromId);
             
-            fs.writeFileSync(SOCIAL_FILE, JSON.stringify(currentSocial));
+            await saveSocial();
             socket.emit("friend_added", { userId: 'bot_asta' });
           }, 1500);
         }
       } catch (err) {}
     });
 
-    socket.on("accept_friend_request", ({ fromId }) => {
+    socket.on("accept_friend_request", async ({ fromId }) => {
       const toId = (socket as any).userId;
       if (!toId) return;
 
       try {
-        const social = JSON.parse(fs.readFileSync(SOCIAL_FILE, "utf-8"));
-        
         // Remove request
-        if (social.requests[toId]) {
-          social.requests[toId] = social.requests[toId].filter((r: any) => r.fromId !== fromId);
+        if (socialCache.requests[toId]) {
+          socialCache.requests[toId] = socialCache.requests[toId].filter((r: any) => r.fromId !== fromId);
         }
 
         // Add to friends
-        if (!social.friends[toId]) social.friends[toId] = [];
-        if (!social.friends[fromId]) social.friends[fromId] = [];
+        if (!socialCache.friends[toId]) socialCache.friends[toId] = [];
+        if (!socialCache.friends[fromId]) socialCache.friends[fromId] = [];
         
-        if (!social.friends[toId].includes(fromId)) social.friends[toId].push(fromId);
-        if (!social.friends[fromId].includes(toId)) social.friends[fromId].push(toId);
+        if (!socialCache.friends[toId].includes(fromId)) socialCache.friends[toId].push(fromId);
+        if (!socialCache.friends[fromId].includes(toId)) socialCache.friends[fromId].push(toId);
 
-        fs.writeFileSync(SOCIAL_FILE, JSON.stringify(social));
+        await saveSocial();
 
         // Notify both parties
         const fromSocketId = userSockets.get(fromId);
@@ -286,12 +576,9 @@ async function startServer() {
       if (!userId) return callback({ friends: [], requests: [] });
 
       try {
-        const social = JSON.parse(fs.readFileSync(SOCIAL_FILE, "utf-8"));
-        const users = JSON.parse(fs.readFileSync(DATA_FILE, "utf-8"));
-
-        const userFriendsIds = social.friends[userId] || [];
+        const userFriendsIds = socialCache.friends[userId] || [];
         const friends = userFriendsIds.map((fId: string) => {
-          const user = users.find((u: any) => u.userId === fId);
+          const user = dataCache.find((u: any) => u.userId === fId);
           return {
             userId: fId,
             name: user?.name || "Unknown Mage",
@@ -300,7 +587,7 @@ async function startServer() {
           };
         });
 
-        const requests = social.requests[userId] || [];
+        const requests = socialCache.requests[userId] || [];
         callback({ friends, requests });
       } catch (err) {
         callback({ friends: [], requests: [] });
@@ -493,6 +780,21 @@ async function startServer() {
         const playerIndex = room.players.findIndex(p => p.socketId === socket.id);
         if (playerIndex !== -1) {
           io.to(room.id).emit("player_disconnected", { socketId: socket.id });
+          
+          if (room.status === 'waiting') {
+            // Remove from lobby if just waiting
+            const userId = (socket as any).userId;
+            room.players = room.players.filter(p => p.socketId !== socket.id);
+            io.to(room.id).emit("ritual_updated", {
+              players: room.players.map(p => ({
+                userId: p.userId,
+                name: p.name,
+                team: p.team,
+                socketId: p.socketId
+              }))
+            });
+          }
+
           if (room.status === 'playing') {
              // If everyone leaves, cleanup
              if (room.players.every(p => !io.sockets.sockets.get(p.socketId)?.connected)) {
@@ -507,8 +809,7 @@ async function startServer() {
   function broadcastPresence(userId: string, status: 'online' | 'offline') {
     // Only fetch friends of this user to notify
     try {
-      const social = JSON.parse(fs.readFileSync(SOCIAL_FILE, "utf-8"));
-      const friends = social.friends[userId] || [];
+      const friends = socialCache.friends[userId] || [];
       friends.forEach((fId: string) => {
         const socketId = userSockets.get(fId);
         if (socketId) {

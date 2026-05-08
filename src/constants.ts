@@ -275,6 +275,11 @@ export const INITIAL_GAME_STATE = {
   hasClaimedLaunchReward: false,
   userId: '',
   name: '',
+  settings: {
+    showFPS: false,
+    showPing: false,
+    isSoundEnabled: true,
+  },
 };
 
 export const RECOVERY_COST = 50;

@@ -5,6 +5,16 @@
 
 class SoundService {
   private ctx: AudioContext | null = null;
+  private enabled: boolean = true;
+
+  setEnabled(enabled: boolean) {
+    this.enabled = enabled;
+    if (!enabled && this.isBgmPlaying) {
+      this.stopBGM();
+    } else if (enabled && !this.isBgmPlaying) {
+      this.startBGM();
+    }
+  }
 
   private init() {
     if (!this.ctx) {
@@ -13,6 +23,7 @@ class SoundService {
   }
 
   private playTone(freq: number, type: OscillatorType, duration: number, volume: number = 0.1) {
+    if (!this.enabled) return;
     this.init();
     if (!this.ctx) return;
 
@@ -83,7 +94,7 @@ class SoundService {
   private isBgmPlaying = false;
   private bgmTimeout: any = null;
   startBGM() {
-    if (this.isBgmPlaying) return;
+    if (this.isBgmPlaying || !this.enabled) return;
     this.isBgmPlaying = true;
     this.init();
     

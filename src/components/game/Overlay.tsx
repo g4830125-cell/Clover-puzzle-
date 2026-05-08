@@ -70,14 +70,14 @@ export default function Overlay({ type, title, message, reward, onAction, action
 
         <button
           onClick={onAction}
-          className={`w-full py-5 rounded-2xl flex items-center justify-center gap-3 font-display font-black text-xs uppercase tracking-[0.3em] transition-all active:scale-95 relative z-10 ${
+          className={`w-full py-5 rounded-2xl flex items-center justify-center gap-3 font-display font-black text-xs uppercase tracking-[0.3em] transition-all active:scale-95 touch-manipulation relative z-10 ${
             isWin 
               ? 'bg-arcane-purple text-white shadow-[0_10px_25px_rgba(139,92,246,0.3)] hover:scale-[1.02]'
               : 'bg-slate-900 border border-white/10 text-arcane-gold-light'
           }`}
         >
-          {actionText}
-          <Play size={14} className="fill-current" />
+          <span className="pointer-events-none">{actionText}</span>
+          <Play size={14} className="fill-current pointer-events-none" />
         </button>
       </motion.div>
     </motion.div>

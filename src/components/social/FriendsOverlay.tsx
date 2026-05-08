@@ -105,12 +105,12 @@ const RequestItem = ({ request }: any) => {
         <div className="flex items-center gap-2">
           <button 
             onClick={handleAccept}
-            className="p-3 bg-arcane-purple/20 text-arcane-purple rounded-xl hover:bg-arcane-purple/30 transition-all"
+            className="p-3 bg-arcane-purple/20 text-arcane-purple rounded-xl hover:bg-arcane-purple/30 transition-all active:scale-90 touch-manipulation flex items-center justify-center"
           >
-            <Check size={18} />
+            <Check size={18} className="pointer-events-none" />
           </button>
-          <button className="p-3 bg-white/5 text-slate-500 rounded-xl hover:bg-white/10 transition-all">
-            <X size={18} />
+          <button className="p-3 bg-white/5 text-slate-500 rounded-xl hover:bg-white/10 transition-all active:scale-90 touch-manipulation flex items-center justify-center">
+            <X size={18} className="pointer-events-none" />
           </button>
         </div>
       )}
@@ -124,6 +124,7 @@ export default function FriendsOverlay({ onClose, userId, userEmail }: FriendsOv
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [isSearching, setIsSearching] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
 
   const isTester = userEmail === 'g4830125@gmail.com';
 
@@ -144,10 +145,16 @@ export default function FriendsOverlay({ onClose, userId, userEmail }: FriendsOv
   const handleSearch = async () => {
     if (!searchQuery.trim()) return;
     setIsSearching(true);
-    const results = await socialService.searchUsers(searchQuery);
-    // Filter out self
-    setSearchResults(results.filter(u => u.userId !== userId));
-    setIsSearching(false);
+    setSearchError(null);
+    try {
+      const results = await socialService.searchUsers(searchQuery);
+      // Filter out self
+      setSearchResults(results.filter(u => u.userId !== userId));
+    } catch (err: any) {
+      setSearchError(err.message || 'Connection failed. Please try again.');
+    } finally {
+      setIsSearching(false);
+    }
   };
 
   const sendRequest = (targetId: string) => {
@@ -179,8 +186,8 @@ export default function FriendsOverlay({ onClose, userId, userEmail }: FriendsOv
               <p className="text-[9px] md:text-[10px] font-bold text-slate-500 uppercase tracking-widest">Connect with other mages</p>
             </div>
           </div>
-          <button onClick={onClose} className="p-2 text-slate-500 hover:text-white transition-colors">
-            <X size={20} />
+          <button onClick={onClose} className="p-3 text-slate-500 hover:text-white transition-all active:scale-90 touch-manipulation flex items-center justify-center -mr-2">
+            <X size={24} className="pointer-events-none" />
           </button>
         </div>
 
@@ -196,7 +203,7 @@ export default function FriendsOverlay({ onClose, userId, userEmail }: FriendsOv
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id as any)}
-                className={`flex items-center gap-2 px-4 py-4 text-[10px] font-black uppercase tracking-widest transition-all relative whitespace-nowrap ${
+                className={`flex items-center gap-2 px-4 py-4 text-[10px] font-black uppercase tracking-widest transition-all relative whitespace-nowrap active:scale-95 touch-manipulation ${
                   activeTab === tab.id ? 'text-arcane-gold' : 'text-slate-500 hover:text-slate-300'
                 }`}
               >
@@ -290,9 +297,9 @@ export default function FriendsOverlay({ onClose, userId, userEmail }: FriendsOv
                   <button 
                     onClick={handleSearch}
                     disabled={isSearching}
-                    className="absolute right-2 p-2.5 bg-arcane-purple/20 text-arcane-purple rounded-xl hover:bg-arcane-purple/30 transition-colors"
+                    className="absolute right-2 p-2.5 bg-arcane-purple/20 text-arcane-purple rounded-xl hover:bg-arcane-purple/30 transition-all active:scale-90 touch-manipulation"
                   >
-                    {isSearching ? <div className="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin" /> : <Search size={20} />}
+                    {isSearching ? <div className="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin" /> : <Search size={20} className="pointer-events-none" />}
                   </button>
                 </div>
 
@@ -327,8 +334,19 @@ export default function FriendsOverlay({ onClose, userId, userEmail }: FriendsOv
                       )}
                     </div>
                   ))}
-                  {searchQuery && !isSearching && searchResults.length === 0 && (
-                    <div className="text-center py-10 text-slate-500 text-sm italic">No users found match your search.</div>
+                  {searchError && (
+                    <div className="text-center py-10 bg-red-500/5 rounded-2xl border border-red-500/10">
+                      <p className="text-red-400 text-sm font-bold uppercase tracking-widest">{searchError}</p>
+                      <button 
+                        onClick={handleSearch}
+                        className="mt-3 text-[9px] font-black text-white/40 hover:text-white uppercase tracking-[0.2em] transition-colors"
+                      >
+                        Try Again
+                      </button>
+                    </div>
+                  )}
+                  {searchQuery && !isSearching && !searchError && searchResults.length === 0 && (
+                    <div className="text-center py-10 text-slate-500 text-sm italic">No players discovered with that handle.</div>
                   )}
                 </div>
               </motion.div>

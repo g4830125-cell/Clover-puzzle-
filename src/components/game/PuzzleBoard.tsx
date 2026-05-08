@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Level } from '../../types';
 import { SHAPES } from '../../constants';
 import PuzzlePiece from './PuzzlePiece';
@@ -38,7 +38,7 @@ export default function PuzzleBoard({ level, onWin, onFail, showHints, showGuide
     setPlacedIndices(new Set());
   }, [level]);
 
-  const handlePlace = (pieceIdx: number, dropX: number, dropY: number) => {
+  const handlePlace = useCallback((pieceIdx: number, dropX: number, dropY: number) => {
     if (!containerRef.current) return;
     
     // Get board relative coordinates
@@ -63,7 +63,7 @@ export default function PuzzleBoard({ level, onWin, onFail, showHints, showGuide
       // Missed placement - call onFail to reduce heart
       onFail();
     }
-  };
+  }, [level, onFail]);
 
   useEffect(() => {
     if (placedIndices.size === level.shapes.length && level.shapes.length > 0) {
@@ -76,20 +76,30 @@ export default function PuzzleBoard({ level, onWin, onFail, showHints, showGuide
 
   useEffect(() => {
     if (!containerRef.current) return;
+    let frameId: number;
+    
     const observer = new ResizeObserver((entries) => {
-      for (let entry of entries) {
-        setBoardWidth(entry.contentRect.width);
-      }
+      // Use requestAnimationFrame to throttle resize updates
+      cancelAnimationFrame(frameId);
+      frameId = requestAnimationFrame(() => {
+        for (let entry of entries) {
+          setBoardWidth(entry.contentRect.width);
+        }
+      });
     });
+    
     observer.observe(containerRef.current);
-    return () => observer.disconnect();
+    return () => {
+      observer.disconnect();
+      cancelAnimationFrame(frameId);
+    };
   }, []);
 
-  const pieceSize = boardWidth ? boardWidth * 0.16 : 58;
+  const pieceSize = useMemo(() => boardWidth ? boardWidth * 0.16 : 58, [boardWidth]);
 
   return (
     <div 
-      className="relative w-full aspect-square bg-gradient-to-br from-[#1e1b4b] to-[#09090b] rounded-3xl border border-arcane-purple/20 shadow-[0_0_40px_rgba(0,0,0,0.6)] overflow-hidden p-0 gpu-accelerated" 
+      className="relative w-full aspect-square bg-gradient-to-br from-[#1e1b4b] to-[#09090b] rounded-3xl border border-arcane-purple/20 shadow-[0_0_40px_rgba(0,0,0,0.6)] overflow-hidden p-0 transform-gpu select-none touch-none" 
       ref={containerRef}
     >
       {/* Background Dots/Pattern */}

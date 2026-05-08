@@ -65,9 +65,17 @@ class SocialService {
   }
 
   searchUsers(query: string): Promise<any[]> {
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
       if (!this.socket) return resolve([]);
-      this.socket.emit('search_users', { query }, (results: any[]) => resolve(results));
+      
+      const timeout = setTimeout(() => {
+        reject(new Error('Search timed out. Please check your connection.'));
+      }, 8000); // 8 second timeout
+
+      this.socket.emit('search_users', { query }, (results: any[]) => {
+        clearTimeout(timeout);
+        resolve(results);
+      });
     });
   }
 

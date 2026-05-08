@@ -1,32 +1,79 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Users, User, Sword, Shield, Loader2, X, Trophy, Coins } from 'lucide-react';
+import { Users, User, Sword, Shield, Loader2, X, Trophy, Coins, Zap, Hash, ArrowRight } from 'lucide-react';
 import { multiplayerService } from '../../services/multiplayerService';
 import { MultiplayerMode } from '../../types';
 import { soundService } from '../../services/soundService';
+import RoomRitual from './RoomRitual';
 
 interface MultiplayerLobbyProps {
   userId: string;
   userName: string;
+  userEmail?: string;
   onMatchFound: (matchData: any) => void;
   onBack: () => void;
 }
 
-export default function MultiplayerLobby({ userId, userName, onMatchFound, onBack }: MultiplayerLobbyProps) {
+export default function MultiplayerLobby({ userId, userName, userEmail, onMatchFound, onBack }: MultiplayerLobbyProps) {
   const [queueingType, setQueueingType] = useState<MultiplayerMode | null>(null);
+  const [activeRitual, setActiveRitual] = useState<any>(null);
+  const [roomCodeInput, setRoomCodeInput] = useState('');
+  const [isJoining, setIsJoining] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [botTestMode, setBotTestMode] = useState(false);
+
+  const isDeveloper = userEmail === 'g4830125@gmail.com';
 
   useEffect(() => {
     multiplayerService.connect();
     
-    const unsubscribe = multiplayerService.on('match_found', (data) => {
+    const unsubMatch = multiplayerService.on('match_found', (data) => {
       soundService.playMagic();
       onMatchFound(data);
     });
 
+    const unsubCreated = multiplayerService.on('ritual_created', (data) => {
+      setActiveRitual(data);
+    });
+
+    const unsubJoined = multiplayerService.on('ritual_joined', (data) => {
+      setActiveRitual(data);
+      setIsJoining(false);
+    });
+
+    const unsubError = multiplayerService.on('ritual_error', (data) => {
+      setError(data.message);
+      setIsJoining(false);
+      if (joinTimeoutRef.current) {
+        clearTimeout(joinTimeoutRef.current);
+        joinTimeoutRef.current = null;
+      }
+      setTimeout(() => setError(null), 3000);
+    });
+
+    const unsubReconnected = multiplayerService.on('reconnected', (data) => {
+      if (data.status === 'waiting') {
+        setActiveRitual({
+          roomId: data.roomId,
+          roomCode: '...', // We don't store code in GameRoom currently, but we can rejoin
+          mode: data.type,
+          players: data.players
+        });
+      } else {
+        // Already in progress, App.tsx should handle this via matchFound typically
+        // But let's trigger found here for safety
+        onMatchFound(data);
+      }
+    });
+
     return () => {
-      unsubscribe();
+      unsubMatch();
+      unsubCreated();
+      unsubJoined();
+      unsubError();
+      unsubReconnected();
     };
-  }, []);
+  }, [onMatchFound]);
 
   const handleJoinQueue = (type: MultiplayerMode) => {
     soundService.playClick();
@@ -42,89 +89,245 @@ export default function MultiplayerLobby({ userId, userName, onMatchFound, onBac
     }
   };
 
+  const handleCreateRitual = (mode: MultiplayerMode) => {
+    soundService.playClick();
+    multiplayerService.createRitual(mode);
+  };
+
+  const joinTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
+
+  const handleJoinRitual = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!roomCodeInput.trim()) return;
+    soundService.playClick();
+    setIsJoining(true);
+    setError(null);
+    
+    if (joinTimeoutRef.current) clearTimeout(joinTimeoutRef.current);
+    
+    // Safety timeout for APK/Mobile where socket callback might hang
+    joinTimeoutRef.current = setTimeout(() => {
+      setIsJoining(prev => {
+        if (prev) {
+          setError("Connection failure. The ritual remains silent.");
+          return false;
+        }
+        return prev;
+      });
+    }, 10000);
+
+    multiplayerService.joinRitual(roomCodeInput.trim().toUpperCase());
+  };
+
+  useEffect(() => {
+    if (activeRitual && joinTimeoutRef.current) {
+      clearTimeout(joinTimeoutRef.current);
+      joinTimeoutRef.current = null;
+    }
+  }, [activeRitual]);
+
+  useEffect(() => {
+    return () => {
+      if (joinTimeoutRef.current) clearTimeout(joinTimeoutRef.current);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (activeRitual) {
+      setIsJoining(false);
+    }
+  }, [activeRitual]);
+
+  if (activeRitual) {
+    return (
+      <RoomRitual 
+        userId={userId}
+        roomId={activeRitual.roomId}
+        roomCode={activeRitual.roomCode}
+        mode={activeRitual.mode}
+        players={activeRitual.players}
+        isDeveloper={isDeveloper}
+        botTestMode={botTestMode}
+        onLeave={() => {
+          soundService.playClick();
+          setActiveRitual(null);
+          onBack();
+        }}
+        onMatchFound={onMatchFound}
+      />
+    );
+  }
+
   return (
-    <div className="flex flex-col gap-8 h-full overflow-y-auto pr-2 custom-scrollbar">
-      <div className="flex items-center justify-between sticky top-0 bg-[#050508]/80 backdrop-blur-md z-10 py-2">
-        <button onClick={onBack} className="text-white/40 hover:text-white transition-colors p-2 -ml-2">
+    <div className="flex flex-col h-full overflow-hidden">
+      <div className="flex items-center justify-between sticky top-0 bg-[#050508]/80 backdrop-blur-md z-10 py-4 px-2 shrink-0">
+        <button onClick={onBack} className="text-white/40 hover:text-white transition-all p-3 -ml-2 active:scale-90 touch-manipulation">
           <X size={24} />
         </button>
         <div className="text-center">
-          <h2 className="text-2xl font-display font-black text-white uppercase tracking-[0.2em]">Clover Arena</h2>
-          <p className="text-[10px] font-bold text-arcane-purple uppercase tracking-widest">Real-time multiplayer</p>
+          <h2 className="text-xl sm:text-2xl font-display font-black text-white uppercase tracking-[0.2em]">Clover Arena</h2>
+          <p className="text-[10px] font-bold text-arcane-purple uppercase tracking-widest leading-none">Real-time multiplayer</p>
         </div>
-        <div className="w-10" /> {/* Spacer */}
+        <div className="w-10" />
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4 pb-12">
-        {/* 1v1 Mode */}
-        <motion.div
-          whileHover={{ scale: 1.02 }}
-          className="bg-black/40 border border-white/10 rounded-3xl p-8 flex flex-col items-center gap-6 relative overflow-hidden group min-h-[320px]"
-        >
-          <div className="absolute top-0 right-0 p-4">
-            <User size={24} className="text-arcane-purple/30" />
-          </div>
-          
-          <div className="w-20 h-20 bg-arcane-purple/20 rounded-full flex items-center justify-center border border-arcane-purple/40">
-            <Sword size={32} className="text-arcane-purple" />
-          </div>
-          
-          <div className="text-center">
-            <h3 className="text-xl font-display font-black text-white uppercase tracking-widest">Arcane Dual</h3>
-            <p className="text-xs text-white/40 mt-2">1 vs 1 Competitive Battle</p>
-          </div>
-
-          <div className="flex items-center gap-4 text-[10px] font-black uppercase tracking-widest">
-            <div className="flex items-center gap-1.5 text-arcane-gold">
-              <Coins size={12} /> 200 Reward
+      <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 pb-8">
+        <div className="flex flex-col gap-8 sm:gap-12 mt-4">
+          {/* Matchmaking Section */}
+          <section>
+            <div className="flex items-center gap-3 mb-4 sm:mb-6 px-1">
+              <Zap size={18} className="text-arcane-gold" />
+              <h3 className="text-[10px] sm:text-xs font-black uppercase tracking-[0.3em] text-white/60">Quick Matchmaking</h3>
             </div>
-            <div className="w-1 h-1 bg-white/10 rounded-full" />
-            <div className="text-white/20">10s Time Limit</div>
-          </div>
+            
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
+              {/* 1v1 Mode */}
+              <motion.div
+                whileHover={{ scale: 1.02 }}
+                className="bg-black/40 border border-white/10 rounded-2xl sm:rounded-3xl p-5 sm:p-6 flex flex-col items-center gap-3 sm:gap-4 relative overflow-hidden group"
+              >
+                <div className="absolute top-0 right-0 p-3 sm:p-4 opacity-30">
+                  <User size={20} className="text-arcane-purple" />
+                </div>
+                <div className="w-12 h-12 sm:w-16 sm:h-16 bg-arcane-purple/20 rounded-full flex items-center justify-center border border-arcane-purple/40">
+                  <Sword size={20} className="sm:size-24 text-arcane-purple" />
+                </div>
+                <div className="text-center">
+                  <h3 className="text-base sm:text-lg font-display font-black text-white uppercase tracking-widest leading-tight">Arcane Dual</h3>
+                  <p className="text-[8px] sm:text-[9px] text-white/40 mt-1 uppercase tracking-widest">1 VS 1 Competitive</p>
+                </div>
+                <button
+                  disabled={!!queueingType}
+                  onClick={() => handleJoinQueue('1v1')}
+                  className="w-full py-2.5 sm:py-3 bg-white/5 border border-white/10 rounded-lg sm:rounded-xl font-display font-bold text-[9px] sm:text-[10px] uppercase tracking-widest hover:bg-arcane-purple hover:border-arcane-purple transition-all active:scale-95 touch-manipulation"
+                >
+                  Enter Queue
+                </button>
+              </motion.div>
 
-          <button
-            disabled={!!queueingType}
-            onClick={() => handleJoinQueue('1v1')}
-            className="w-full py-4 bg-white/5 border border-white/10 rounded-2xl font-display font-bold text-sm uppercase tracking-widest hover:bg-arcane-purple hover:border-arcane-purple transition-all mt-auto"
-          >
-            Enter Queue
-          </button>
-        </motion.div>
-
-        {/* 2v2 Mode */}
-        <motion.div
-          whileHover={{ scale: 1.02 }}
-          className="bg-black/40 border border-white/10 rounded-3xl p-8 flex flex-col items-center gap-6 relative overflow-hidden group min-h-[320px]"
-        >
-          <div className="absolute top-0 right-0 p-4">
-            <Users size={24} className="text-[#10b981]/30" />
-          </div>
-
-          <div className="w-20 h-20 bg-[#10b981]/20 rounded-full flex items-center justify-center border border-[#10b981]/40">
-            <Shield size={32} className="text-[#10b981]" />
-          </div>
-
-          <div className="text-center">
-            <h3 className="text-xl font-display font-black text-white uppercase tracking-widest">Alliance Rite</h3>
-            <p className="text-xs text-white/40 mt-2">2 vs 2 Team Collaboration</p>
-          </div>
-
-          <div className="flex items-center gap-4 text-[10px] font-black uppercase tracking-widest">
-            <div className="flex items-center gap-1.5 text-arcane-gold">
-              <Coins size={12} /> 150 Reward
+              {/* 2v2 Mode */}
+              <motion.div
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                className="bg-black/40 border border-white/10 rounded-2xl sm:rounded-3xl p-5 sm:p-6 flex flex-col items-center gap-3 sm:gap-4 relative overflow-hidden group"
+              >
+                <div className="absolute top-0 right-0 p-3 sm:p-4 opacity-30 pointer-events-none">
+                  <Users size={20} className="text-[#10b981]" />
+                </div>
+                <div className="w-12 h-12 sm:w-16 sm:h-16 bg-[#10b981]/20 rounded-full flex items-center justify-center border border-[#10b981]/40 pointer-events-none">
+                  <Shield size={20} className="sm:size-24 text-[#10b981]" />
+                </div>
+                <div className="text-center pointer-events-none">
+                  <h3 className="text-base sm:text-lg font-display font-black text-white uppercase tracking-widest leading-tight">Alliance Rite</h3>
+                  <p className="text-[8px] sm:text-[9px] text-white/40 mt-1 uppercase tracking-widest">2 VS 2 Collaboration</p>
+                </div>
+                <button
+                  disabled={!!queueingType}
+                  onClick={() => handleJoinQueue('2v2')}
+                  className="w-full py-2.5 sm:py-3 bg-white/5 border border-white/10 rounded-lg sm:rounded-xl font-display font-bold text-[9px] sm:text-[10px] uppercase tracking-widest hover:bg-[#10b981] hover:border-[#10b981] transition-all active:scale-95 touch-manipulation"
+                >
+                  Enter Queue
+                </button>
+              </motion.div>
             </div>
-            <div className="w-1 h-1 bg-white/10 rounded-full" />
-            <div className="text-white/20">15s Team Goal</div>
-          </div>
+          </section>
 
-          <button
-            disabled={!!queueingType}
-            onClick={() => handleJoinQueue('2v2')}
-            className="w-full py-4 bg-white/5 border border-white/10 rounded-2xl font-display font-bold text-sm uppercase tracking-widest hover:bg-[#10b981] hover:border-[#10b981] transition-all mt-auto"
-          >
-            Enter Queue
-          </button>
-        </motion.div>
+          {/* Private Rituals Section */}
+          <section>
+            <div className="flex items-center gap-3 mb-4 sm:mb-6 px-1">
+              <Hash size={18} className="text-arcane-purple" />
+              <h3 className="text-[10px] sm:text-xs font-black uppercase tracking-[0.3em] text-white/60">Private Rituals</h3>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+              {/* Join by Code */}
+              <div className="bg-white/[0.02] border border-white/10 rounded-2xl sm:rounded-3xl p-4 sm:p-6">
+                <h4 className="text-[9px] sm:text-[10px] font-black uppercase tracking-widest text-arcane-gold mb-3 sm:mb-4">Enter Invitation Seal</h4>
+                <form onSubmit={handleJoinRitual} className="flex gap-2">
+                  <input 
+                    type="text"
+                    placeholder="EX: A7K9F"
+                    value={roomCodeInput}
+                    onChange={(e) => setRoomCodeInput(e.target.value.toUpperCase())}
+                    maxLength={5}
+                    className="flex-1 bg-black/40 border border-white/10 rounded-lg sm:rounded-xl px-3 sm:px-4 py-2 sm:py-3 text-white font-display font-bold text-sm sm:text-base tracking-[0.2em] sm:tracking-[0.3em] uppercase placeholder:text-white/10 focus:outline-none focus:border-arcane-gold/40 transition-colors"
+                  />
+                  <button 
+                    type="submit"
+                    disabled={isJoining || roomCodeInput.length < 5}
+                    className="p-3 sm:p-4 bg-arcane-gold text-black rounded-lg sm:rounded-xl hover:scale-105 active:scale-95 transition-all disabled:opacity-50 disabled:grayscale"
+                  >
+                    {isJoining ? <Loader2 size={18} className="animate-spin" /> : <ArrowRight size={18} />}
+                  </button>
+                </form>
+                <AnimatePresence>
+                  {error && (
+                    <motion.p 
+                      initial={{ opacity: 0, y: 5 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0 }}
+                      className="text-[8px] sm:text-[9px] font-bold text-red-500 uppercase tracking-widest mt-2"
+                    >
+                      {error}
+                    </motion.p>
+                  )}
+                </AnimatePresence>
+              </div>
+
+              {/* Create Ritual */}
+              <div className="bg-white/[0.02] border border-white/10 rounded-2xl sm:rounded-3xl p-4 sm:p-6 flex flex-col gap-3 sm:gap-4">
+                <h4 className="text-[9px] sm:text-[10px] font-black uppercase tracking-widest text-arcane-purple">Initiate New Ritual</h4>
+                <div className="flex gap-2">
+                  <button 
+                    disabled={isJoining}
+                    onClick={() => handleCreateRitual('1v1')}
+                    className="flex-1 py-2.5 sm:py-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg sm:rounded-xl text-[8px] sm:text-[9px] font-black uppercase tracking-widest transition-all active:scale-95 touch-manipulation disabled:opacity-50"
+                  >
+                    Create 1V1
+                  </button>
+                  <button 
+                    disabled={isJoining}
+                    onClick={() => handleCreateRitual('2v2')}
+                    className="flex-1 py-2.5 sm:py-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg sm:rounded-xl text-[8px] sm:text-[9px] font-black uppercase tracking-widest transition-all active:scale-95 touch-manipulation disabled:opacity-50"
+                  >
+                    Create 2V2
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {isDeveloper && (
+              <motion.div 
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="lg:col-span-2 bg-gradient-to-r from-arcane-purple/10 to-arcane-gold/10 border border-white/10 rounded-xl sm:rounded-[2rem] p-4 sm:p-5 flex items-center justify-between mt-4 sm:mt-6"
+              >
+                <div className="flex items-center gap-2 sm:gap-3">
+                  <div className="p-2 sm:p-3 bg-arcane-gold/20 rounded-lg sm:rounded-xl shrink-0">
+                    <Zap size={16} className="sm:size-18 text-arcane-gold" />
+                  </div>
+                  <div>
+                    <h4 className="text-[9px] sm:text-[10px] font-black uppercase tracking-[0.2em] text-white">Bot Protocol</h4>
+                    <p className="text-[7px] sm:text-[8px] text-white/40 uppercase font-black tracking-widest mt-0.5">Activate "Asta" summon</p>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => {
+                    soundService.playMagic();
+                    setBotTestMode(!botTestMode);
+                  }}
+                  className={`w-12 h-6 sm:w-14 sm:h-7 rounded-full relative transition-all shrink-0 ${botTestMode ? 'bg-arcane-gold' : 'bg-white/10'}`}
+                >
+                  <motion.div 
+                    animate={{ x: botTestMode ? (window.innerWidth < 640 ? 24 : 32) : 4 }}
+                    transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                    className={`absolute top-0.5 sm:top-1 w-5 h-5 rounded-full shadow-lg ${botTestMode ? 'bg-black' : 'bg-white/40'}`}
+                  />
+                </button>
+              </motion.div>
+            )}
+          </section>
+        </div>
       </div>
 
       <AnimatePresence>

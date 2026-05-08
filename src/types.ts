@@ -39,6 +39,11 @@ export interface GameState {
   userId?: string;
   name?: string;
   email?: string;
+  settings: {
+    showFPS: boolean;
+    showPing: boolean;
+    isSoundEnabled: boolean;
+  };
 }
 
 export interface LeaderboardEntry {

@@ -16,6 +16,10 @@ export function useGameState() {
         if (!parsed.userId) {
           parsed.userId = 'user-' + Math.random().toString(36).substr(2, 9);
         }
+        // Ensure settings exist
+        if (!parsed.settings) {
+          parsed.settings = INITIAL_GAME_STATE.settings;
+        }
         return parsed;
       } catch (e) {
         const fresh = { ...INITIAL_GAME_STATE, userId: 'user-' + Math.random().toString(36).substr(2, 9) };
@@ -30,33 +34,40 @@ export function useGameState() {
     localStorage.setItem('grimoire_quest_state', JSON.stringify(state));
   }, [state]);
 
-  const updateLevel = (inc = 1) => {
+  const updateLevel = useCallback((inc = 1) => {
     setState(prev => ({
       ...prev,
       currentLevel: prev.currentLevel + inc,
       unlockedLevels: Math.max(prev.unlockedLevels, prev.currentLevel + inc),
     }));
-  };
+  }, []);
 
-  const addGold = (amount: number) => {
+  const addGold = useCallback((amount: number) => {
     setState(prev => ({ ...prev, gold: prev.gold + amount }));
-  };
+  }, []);
 
-  const useLife = () => {
+  const useLife = useCallback(() => {
     setState(prev => ({ ...prev, lives: Math.max(0, prev.lives - 1) }));
-  };
+  }, []);
 
-  const recoverLife = (cost: number = 0) => {
-    if (state.gold >= cost) {
-      setState(prev => ({
-        ...prev,
-        gold: prev.gold - (cost || 0),
-        lives: Math.min(5, prev.lives + 1),
-      }));
-      return true;
-    }
-    return false;
-  };
+  const recoverLife = useCallback((cost: number = 0) => {
+    // We need to check gold from the latest state, 
+    // so it's safer to do the check inside the functional updater if needed,
+    // but here we can just use the prev state.
+    let success = false;
+    setState(prev => {
+      if (prev.gold >= cost) {
+        success = true;
+        return {
+          ...prev,
+          gold: prev.gold - (cost || 0),
+          lives: Math.min(5, prev.lives + 1),
+        };
+      }
+      return prev;
+    });
+    return success;
+  }, []);
 
   const checkAchievements = useCallback((newState: GameState) => {
     let changed = false;
@@ -80,26 +91,26 @@ export function useGameState() {
     }
   }, [setState]);
 
-  const claimDailyReward = (reward: number) => {
+  const claimDailyReward = useCallback((reward: number) => {
     setState(prev => ({
       ...prev,
       gold: prev.gold + reward,
       lastDailyReward: new Date().toDateString(),
     }));
-  };
+  }, []);
 
-  const addHint = (amount: number) => {
+  const addHint = useCallback((amount: number) => {
     setState(prev => ({ ...prev, hints: prev.hints + amount }));
-  };
+  }, []);
 
-  const claimWheelReward = (type: 'gold' | 'hint', amount: number) => {
+  const claimWheelReward = useCallback((type: 'gold' | 'hint', amount: number) => {
     setState(prev => ({
       ...prev,
       gold: type === 'gold' ? prev.gold + amount : prev.gold,
       hints: type === 'hint' ? prev.hints + amount : prev.hints,
       lastWheelSpin: new Date().toISOString(),
     }));
-  };
+  }, []);
 
   const claimLaunchReward = useCallback(() => {
     setState(prev => {

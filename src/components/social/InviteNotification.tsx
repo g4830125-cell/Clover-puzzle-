@@ -32,9 +32,9 @@ export default function InviteNotification({ invite, onAccept, onDecline }: Invi
               </div>
               <button 
                 onClick={onDecline}
-                className="text-slate-500 hover:text-white"
+                className="p-3 text-slate-500 hover:text-white transition-all active:scale-90 touch-manipulation"
               >
-                <X size={16} />
+                <X size={16} className="pointer-events-none" />
               </button>
             </div>
             
@@ -45,13 +45,13 @@ export default function InviteNotification({ invite, onAccept, onDecline }: Invi
             <div className="grid grid-cols-2 gap-2">
               <button
                 onClick={onDecline}
-                className="py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-400 text-[9px] font-black uppercase tracking-widest transition-all"
+                className="py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-400 text-[9px] font-black uppercase tracking-widest transition-all active:scale-95 touch-manipulation"
               >
                 Ignore
               </button>
               <button
                 onClick={onAccept}
-                className="py-2.5 rounded-xl bg-arcane-purple text-white text-[9px] font-black uppercase tracking-widest shadow-lg shadow-arcane-purple/20 hover:scale-105 active:scale-95 transition-all"
+                className="py-2.5 rounded-xl bg-arcane-purple text-white text-[9px] font-black uppercase tracking-widest shadow-lg shadow-arcane-purple/20 hover:scale-[1.03] active:scale-95 transition-all touch-manipulation"
               >
                 Accept
               </button>

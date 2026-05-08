@@ -126,7 +126,7 @@ export default function DailyWheel({ onClaim, onClose, lastSpin, userEmail }: Da
 
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 p-2 text-slate-500 hover:text-white transition-colors z-20"
+          className="absolute top-4 right-4 p-3 text-slate-500 hover:text-white transition-all z-20 active:scale-90 touch-manipulation"
         >
           <X size={20} />
         </button>
@@ -218,7 +218,7 @@ export default function DailyWheel({ onClaim, onClose, lastSpin, userEmail }: Da
                    onClaim(reward.type, reward.amount);
                    onClose();
                  }}
-                 className="magic-btn w-full py-4 uppercase font-black tracking-[0.2em]"
+                 className="magic-btn w-full py-4 uppercase font-black tracking-[0.2em] active:scale-95 touch-manipulation"
                >
                  Claim Reward
                </button>
@@ -228,9 +228,9 @@ export default function DailyWheel({ onClaim, onClose, lastSpin, userEmail }: Da
                <button
                  onClick={spin}
                  disabled={isSpinning || (!canSpin())}
-                 className={`magic-btn w-full py-4 text-base md:text-lg transition-all ${(!canSpin() && !isSpinning) ? 'opacity-30 grayscale cursor-not-allowed' : ''}`}
+                 className={`magic-btn w-full py-4 text-base md:text-lg transition-all active:scale-95 touch-manipulation ${(!canSpin() && !isSpinning) ? 'opacity-30 grayscale cursor-not-allowed text-white/50' : ''}`}
                >
-                 <span className="uppercase tracking-[0.2em] font-black">
+                 <span className="uppercase tracking-[0.2em] font-black pointer-events-none">
                    {isSpinning ? 'Manifesting...' : canSpin() ? 'Commence Ritual' : 'Ritual Exhausted'}
                  </span>
                </button>

@@ -65,29 +65,29 @@ export default function HUD({ lives, gold, hints, level, maxLevel, onRestart, on
       <div className="flex justify-center gap-6 mt-2">
         <button
           onClick={onRestart}
-          className="p-3 bg-slate-900/80 hover:bg-slate-800 rounded-xl border border-arcane-gold/20 text-arcane-gold/70 hover:text-arcane-gold transition-all"
+          className="p-4 bg-slate-900/80 hover:bg-slate-800 rounded-xl border border-arcane-gold/20 text-arcane-gold/70 hover:text-arcane-gold transition-all active:scale-90 touch-manipulation"
           title="Restart Ritual"
         >
-          <RotateCcw size={18} />
+          <RotateCcw size={20} className="pointer-events-none" />
         </button>
         <button
           onClick={onHint}
-          className="p-3 bg-arcane-purple/10 hover:bg-arcane-purple/20 rounded-xl border border-arcane-purple/30 text-arcane-purple hover:text-arcane-purple-lighter transition-all flex items-center gap-2"
+          className="p-3 bg-arcane-purple/10 hover:bg-arcane-purple/20 rounded-xl border border-arcane-purple/30 text-arcane-purple hover:text-arcane-purple-lighter transition-all active:scale-95 touch-manipulation flex items-center gap-2"
           title={hints > 0 ? `${hints} Free Hints Available` : "Small Hint (200G)"}
         >
-          <Lightbulb size={18} />
-          <span className="text-[10px] font-bold uppercase tracking-widest px-1 border-l border-arcane-purple/30">
+          <Lightbulb size={18} className="pointer-events-none" />
+          <span className="text-[10px] font-bold uppercase tracking-widest px-1 border-l border-arcane-purple/30 pointer-events-none">
             {hints > 0 ? `${hints}x` : '200G'}
           </span>
         </button>
 
         <button
           onClick={onGuidedHint}
-          className="p-3 bg-yellow-500/10 hover:bg-yellow-500/20 rounded-xl border border-yellow-500/30 text-yellow-500 hover:text-yellow-400 transition-all flex items-center gap-2"
+          className="p-3 bg-yellow-500/10 hover:bg-yellow-500/20 rounded-xl border border-yellow-500/30 text-yellow-500 hover:text-yellow-400 transition-all active:scale-95 touch-manipulation flex items-center gap-2"
           title="Full Guided Solution"
         >
-          <Zap size={18} />
-          <span className="text-[10px] font-bold uppercase tracking-widest px-1 border-l border-yellow-500/30">1000G</span>
+          <Zap size={18} className="pointer-events-none" />
+          <span className="text-[10px] font-bold uppercase tracking-widest px-1 border-l border-yellow-500/30 pointer-events-none">1000G</span>
         </button>
       </div>
     </div>

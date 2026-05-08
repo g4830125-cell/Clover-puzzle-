@@ -13,7 +13,7 @@ import DailyWheel from './components/game/DailyWheel';
 import { RECOVERY_COST } from './constants';
 import confetti from 'canvas-confetti';
 import { motion, AnimatePresence } from 'motion/react';
-import { Sparkles, ShoppingBag, Trophy, Home, Heart, Coins, Plus, ChevronRight, User, Users, Gift } from 'lucide-react';
+import { Sparkles, ShoppingBag, Trophy, Home, Heart, Coins, Plus, ChevronRight, User, Users, Gift, Settings } from 'lucide-react';
 import { soundService } from './services/soundService';
 import StudioSplash from './components/ui/StudioSplash';
 import LiveStatus from './components/game/LiveStatus';
@@ -28,11 +28,15 @@ import FriendsOverlay from './components/social/FriendsOverlay';
 import InviteNotification from './components/social/InviteNotification';
 import { multiplayerService } from './services/multiplayerService';
 import { GameInvite } from './types';
+import { FPSCounter } from './components/game/FPSCounter';
+import { PingIndicator } from './components/game/PingIndicator';
+import { SettingsModal } from './components/game/SettingsModal';
 
 export default function App() {
   const { state, updateLevel, addGold, addHint, useLife, recoverLife, claimDailyReward, claimWheelReward, claimLaunchReward, setState } = useGameState();
   const [view, setView] = useState<'menu' | 'playing' | 'shop' | 'achievements' | 'leaderboard' | 'multiplayer_lobby' | 'multiplayer_game'>('menu');
   const [isWheelOpen, setIsWheelOpen] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isSocialOpen, setIsSocialOpen] = useState(false);
   const [activeInvite, setActiveInvite] = useState<GameInvite | null>(null);
   const [multiplayerData, setMultiplayerData] = useState<any>(null);
@@ -126,11 +130,21 @@ export default function App() {
       // Actual matchFound will follow
     });
 
+    const unsubReconnected = multiplayerService.on('reconnected', (data) => {
+      if (data.status === 'waiting') {
+        setView('multiplayer_lobby');
+      } else {
+        setMultiplayerData(data);
+        setView('multiplayer_game');
+      }
+    });
+
     return () => {
       clearTimeout(splashTimer);
       unsubMatch();
       unsubInvite();
       unsubAccepted();
+      unsubReconnected();
     };
   }, [state.userId, state.name]);
 
@@ -145,6 +159,7 @@ export default function App() {
     }
     // Try to play BGM on first interaction
     const enableAudio = () => {
+      soundService.setEnabled(state.settings.isSoundEnabled);
       soundService.startBGM();
       window.removeEventListener('click', enableAudio);
     };
@@ -322,20 +337,35 @@ export default function App() {
               exit={{ opacity: 0, scale: 0.95 }}
               className="flex-1 flex flex-col p-6 pt-10 relative overflow-y-auto custom-scrollbar"
             >
+              <div className="absolute top-4 right-4 z-10 flex gap-2">
+                <motion.button 
+                  whileTap={{ scale: 0.9 }}
+                  onClick={() => setIsSettingsOpen(true)}
+                  className="p-2.5 bg-white/5 border border-white/10 rounded-xl hover:bg-white/10 transition-all group backdrop-blur-md transform-gpu"
+                  aria-label="Settings"
+                >
+                  <Settings className="text-white/60 group-hover:text-white transition-colors" size={18} />
+                </motion.button>
+              </div>
+
               <div className="flex-1 flex flex-col items-center justify-center gap-12 text-center py-4">
-                <div className="flex flex-wrap items-center justify-center gap-4">
-                  <button 
+                <div className="flex items-center justify-center gap-4">
+                  <motion.button 
+                    whileTap={{ scale: 0.9 }}
                     onClick={() => setIsNamingOpen(true)}
-                    className="p-4 bg-white/5 border border-white/10 rounded-2xl hover:bg-white/10 transition-all group"
+                    className="p-3 bg-white/5 border border-white/10 rounded-xl hover:bg-white/10 transition-all group transform-gpu"
+                    aria-label="Profile"
                   >
-                    <User className="text-arcane-purple group-hover:scale-110 transition-transform" />
-                  </button>
-                  <button 
+                    <User className="text-white/60 group-hover:text-white transition-colors" size={20} />
+                  </motion.button>
+                  <motion.button 
+                    whileTap={{ scale: 0.9 }}
                     onClick={() => setIsSocialOpen(true)}
-                    className="p-4 bg-white/5 border border-white/10 rounded-2xl hover:bg-white/10 transition-all group relative"
+                    className="p-3 bg-white/5 border border-white/10 rounded-xl hover:bg-white/10 transition-all group relative transform-gpu"
+                    aria-label="Social"
                   >
-                    <Users className="text-arcane-gold group-hover:scale-110 transition-transform" />
-                  </button>
+                    <Users className="text-white/60 group-hover:text-white transition-colors" size={20} />
+                  </motion.button>
                 </div>
                 <div className="relative shrink-0">
                   <motion.div
@@ -357,64 +387,67 @@ export default function App() {
                 </div>
 
                 <div className="flex flex-col gap-4 w-full shrink-0">
-                  <button
-                    onClick={() => {
-                      if (state.lives > 0) {
-                        soundService.playPlace();
-                        setView('playing');
-                      } else {
-                        setView('shop');
-                      }
-                    }}
-                    className="magic-btn w-full py-5 text-lg"
-                  >
-                    <span className="relative uppercase tracking-widest">
-                      {state.lives > 0 ? 'Start Selection' : 'No Mana - Visit Vault'}
-                    </span>
-                  </button>
+                    <button
+                      onClick={() => {
+                        if (state.lives > 0) {
+                          soundService.playPlace();
+                          setView('playing');
+                        } else {
+                          setView('shop');
+                        }
+                      }}
+                      className="magic-btn w-full py-5 text-lg transition-all active:scale-95 touch-manipulation transform-gpu"
+                    >
+                      <motion.span 
+                        whileTap={{ scale: 0.98 }}
+                        className="relative uppercase tracking-widest pointer-events-none block"
+                      >
+                        {state.lives > 0 ? 'Start Selection' : 'No Mana - Visit Vault'}
+                      </motion.span>
+                    </button>
 
                   <div className="grid grid-cols-2 gap-3">
                     <button
                       onClick={() => setView('multiplayer_lobby')}
-                      className="col-span-2 p-5 rounded-2xl bg-arcane-purple/20 border border-arcane-purple/30 hover:bg-arcane-purple hover:border-arcane-purple transition-all flex items-center justify-center gap-3 group"
+                      className="col-span-2 p-5 rounded-2xl bg-arcane-purple/20 border border-arcane-purple/30 hover:bg-arcane-purple hover:border-arcane-purple transition-all flex items-center justify-center gap-3 group active:scale-95 touch-manipulation transform-gpu"
                     >
-                      <Users className="text-arcane-purple group-hover:text-white transition-colors" size={24} />
-                      <span className="text-xs font-display font-black uppercase tracking-[0.2em] text-white group-hover:scale-105 transition-transform">Arena Battle</span>
+                      <Users className="text-arcane-purple group-hover:text-white transition-colors pointer-events-none" size={24} />
+                      <span className="text-xs font-display font-black uppercase tracking-[0.2em] text-white group-hover:scale-105 transition-transform pointer-events-none">Arena Battle</span>
                     </button>
                     <button
                       onClick={() => setIsWheelOpen(true)}
-                      className="col-span-2 p-5 rounded-2xl bg-gradient-to-tr from-arcane-gold/20 to-transparent border border-arcane-gold/30 hover:from-arcane-gold hover:to-arcane-gold transition-all flex items-center justify-center gap-3 group"
+                      className="col-span-2 p-5 rounded-2xl bg-gradient-to-tr from-arcane-gold/20 to-transparent border border-arcane-gold/30 hover:from-arcane-gold hover:to-arcane-gold transition-all flex items-center justify-center gap-3 group active:scale-95 touch-manipulation transform-gpu"
                     >
-                      <Gift className="text-arcane-gold group-hover:text-slate-950 transition-colors" size={24} />
-                      <span className="text-xs font-display font-black uppercase tracking-[0.2em] text-white group-hover:text-slate-950 group-hover:scale-105 transition-transform">Daily Ritual</span>
+                      <Gift className="text-arcane-gold group-hover:text-slate-950 transition-colors pointer-events-none" size={24} />
+                      <span className="text-xs font-display font-black uppercase tracking-[0.2em] text-white group-hover:text-slate-950 group-hover:scale-105 transition-transform pointer-events-none">Daily Ritual</span>
                     </button>
                     <button
                       onClick={() => setView('shop')}
-                      className="p-4 rounded-2xl bg-black/40 border border-[#27272a] hover:border-arcane-purple/40 transition-colors flex flex-col items-center gap-2 group"
+                      className="p-4 rounded-2xl bg-black/40 border border-[#27272a] hover:border-arcane-purple/40 transition-all active:scale-95 touch-manipulation flex flex-col items-center gap-2 group transform-gpu"
                     >
-                      <ShoppingBag className="text-arcane-purple group-hover:text-arcane-gold transition-colors" size={20} />
-                      <span className="text-[8px] font-display font-bold uppercase tracking-widest text-slate-500 group-hover:text-slate-300 text-center">Vault</span>
+                      <ShoppingBag className="text-arcane-purple group-hover:text-arcane-gold transition-colors pointer-events-none" size={20} />
+                      <span className="text-[8px] font-display font-bold uppercase tracking-widest text-slate-500 group-hover:text-slate-300 text-center pointer-events-none">Vault</span>
                     </button>
                     <button
                       onClick={() => setView('leaderboard')}
-                      className="p-4 rounded-2xl bg-black/40 border border-[#27272a] hover:border-arcane-purple/40 transition-colors flex flex-col items-center gap-2 group"
+                      className="p-4 rounded-2xl bg-black/40 border border-[#27272a] hover:border-arcane-purple/40 transition-all active:scale-95 touch-manipulation flex flex-col items-center gap-2 group transform-gpu"
                     >
-                      <Trophy className="text-arcane-purple group-hover:text-arcane-gold transition-colors" size={20} />
-                      <span className="text-[8px] font-display font-bold uppercase tracking-widest text-slate-500 group-hover:text-slate-300 text-center">Ranks</span>
+                      <Trophy className="text-arcane-purple group-hover:text-arcane-gold transition-colors pointer-events-none" size={20} />
+                      <span className="text-[8px] font-display font-bold uppercase tracking-widest text-slate-500 group-hover:text-slate-300 text-center pointer-events-none">Ranks</span>
                     </button>
                     <button
                       onClick={() => setView('achievements')}
-                      className="p-4 rounded-2xl bg-black/40 border border-[#27272a] hover:border-arcane-purple/40 transition-colors flex flex-col items-center gap-2 group"
+                      className="p-4 rounded-2xl bg-black/40 border border-[#27272a] hover:border-arcane-purple/40 transition-all active:scale-95 touch-manipulation flex flex-col items-center gap-2 group transform-gpu"
                     >
-                      <Plus className="text-arcane-purple group-hover:text-arcane-gold transition-colors" size={20} />
-                      <span className="text-[8px] font-display font-bold uppercase tracking-widest text-slate-500 group-hover:text-slate-300 text-center">Feats</span>
+                      <Plus className="text-arcane-purple group-hover:text-arcane-gold transition-colors pointer-events-none" size={20} />
+                      <span className="text-[8px] font-display font-bold uppercase tracking-widest text-slate-500 group-hover:text-slate-300 text-center pointer-events-none">Feats</span>
                     </button>
                     <button
                       onClick={() => setIsNamingOpen(true)}
-                      className="p-4 rounded-2xl bg-black/40 border border-[#27272a] hover:border-arcane-purple/40 transition-colors flex flex-col items-center gap-2 group"
+                      className="p-4 rounded-2xl bg-black/40 border border-[#27272a] hover:border-arcane-purple/40 transition-all active:scale-95 touch-manipulation flex flex-col items-center gap-2 group transform-gpu"
                     >
-                      <User className="text-arcane-purple group-hover:text-arcane-gold transition-colors" size={20} />
-                      <span className="text-[8px] font-display font-bold uppercase tracking-widest text-slate-500 group-hover:text-slate-300 text-center">Profile</span>
+                      <User className="text-arcane-purple group-hover:text-arcane-gold transition-colors pointer-events-none" size={20} />
+                      <span className="text-[8px] font-display font-bold uppercase tracking-widest text-slate-500 group-hover:text-slate-300 text-center pointer-events-none">Profile</span>
                     </button>
                   </div>
                 </div>
@@ -606,6 +639,7 @@ export default function App() {
               <MultiplayerLobby 
                 userId={state.userId || 'guest'}
                 userName={state.name || 'Mage'}
+                userEmail={state.email}
                 onBack={() => setView('menu')}
                 onMatchFound={(data) => {
                   setMultiplayerData(data);
@@ -743,6 +777,16 @@ export default function App() {
           />
         )}
       </AnimatePresence>
+
+      <SettingsModal 
+        isOpen={isSettingsOpen} 
+        onClose={() => setIsSettingsOpen(false)} 
+        state={state} 
+        setState={setState} 
+      />
+
+      <FPSCounter settings={state.settings} />
+      <PingIndicator settings={state.settings} />
     </div>
   );
 }
