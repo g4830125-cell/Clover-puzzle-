@@ -343,37 +343,6 @@ export default function MultiplayerLobby({ userId, userName, userEmail, onMatchF
                 </div>
               </div>
             </div>
-
-            {isDeveloper && (
-              <motion.div 
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="lg:col-span-2 bg-gradient-to-r from-arcane-purple/10 to-arcane-gold/10 border border-white/10 rounded-xl sm:rounded-[2rem] p-4 sm:p-5 flex items-center justify-between mt-4 sm:mt-6"
-              >
-                <div className="flex items-center gap-2 sm:gap-3">
-                  <div className="p-2 sm:p-3 bg-arcane-gold/20 rounded-lg sm:rounded-xl shrink-0">
-                    <Zap size={16} className="sm:size-18 text-arcane-gold" />
-                  </div>
-                  <div>
-                    <h4 className="text-[9px] sm:text-[10px] font-black uppercase tracking-[0.2em] text-white">Bot Protocol</h4>
-                    <p className="text-[7px] sm:text-[8px] text-white/40 uppercase font-black tracking-widest mt-0.5">Activate "Asta" summon</p>
-                  </div>
-                </div>
-                <button 
-                  onClick={() => {
-                    soundService.playMagic();
-                    setBotTestMode(!botTestMode);
-                  }}
-                  className={`w-12 h-6 sm:w-14 sm:h-7 rounded-full relative transition-all shrink-0 ${botTestMode ? 'bg-arcane-gold' : 'bg-white/10'}`}
-                >
-                  <motion.div 
-                    animate={{ x: botTestMode ? (window.innerWidth < 640 ? 24 : 32) : 4 }}
-                    transition={{ type: "spring", stiffness: 500, damping: 30 }}
-                    className={`absolute top-0.5 sm:top-1 w-5 h-5 rounded-full shadow-lg ${botTestMode ? 'bg-black' : 'bg-white/40'}`}
-                  />
-                </button>
-              </motion.div>
-            )}
           </section>
         </div>
       </div>

@@ -128,9 +128,7 @@ export default function FriendsOverlay({ onClose, userId, userEmail }: FriendsOv
 
   const isTester = userEmail === 'g4830125@gmail.com';
 
-  const testBots: Friend[] = [
-    { userId: 'bot_asta', name: 'Asta (Test)', level: 42, status: 'online' },
-  ];
+  const testBots: Friend[] = [];
 
   useEffect(() => {
     socialService.setListeners(

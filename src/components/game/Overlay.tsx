@@ -5,7 +5,6 @@
 
 import { motion } from 'motion/react';
 import { Sparkles, Skull, Coins, Play } from 'lucide-react';
-import CharacterAvatar from './CharacterAvatar';
 
 interface OverlayProps {
   type: 'win' | 'lose' | 'checkpoint' | 'boss';
@@ -21,13 +20,6 @@ const AVATAR_IMG = "https://images.unsplash.com/photo-1541560052-5e137f229371?q=
 export default function Overlay({ type, title, message, reward, onAction, actionText }: OverlayProps) {
   const isWin = type === 'win' || type === 'checkpoint' || type === 'boss';
 
-  const getMentorMessage = () => {
-    if (type === 'win') return "Excellent control. The mana follows your will.";
-    if (type === 'lose') return "Focus! A magic knight never yields to fatigue.";
-    if (type === 'boss') return "This grimoire page is unique. You're growing stronger.";
-    return "The ritual is ready.";
-  };
-
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -41,16 +33,7 @@ export default function Overlay({ type, title, message, reward, onAction, action
       >
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-40 h-40 bg-arcane-purple/20 blur-3xl rounded-full" />
         
-        <div className="mb-6">
-          <CharacterAvatar 
-             image="https://images.unsplash.com/photo-1549490349-8643362247b5?q=80&w=200&h=200&auto=format&fit=crop" 
-             name="Asta" 
-             message={getMentorMessage()} 
-             position="left" 
-          />
-        </div>
-
-        <div className="flex justify-center mb-8 relative z-10">
+        <div className="flex justify-center mb-10 relative z-10">
           {type === 'win' && <Sparkles size={72} className="text-yellow-400 drop-shadow-[0_0_15px_rgba(234,179,8,0.5)]" />}
           {type === 'lose' && <Skull size={72} className="text-arcane-red drop-shadow-[0_0_15px_rgba(239,68,68,0.5)]" />}
           {type === 'boss' && <Sparkles size={72} className="text-arcane-purple animate-pulse drop-shadow-[0_0_20px_rgba(139,92,246,0.6)]" />}

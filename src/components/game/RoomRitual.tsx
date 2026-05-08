@@ -116,21 +116,6 @@ export default function RoomRitual({
                 Manifested Souls ({players.length}/{maxPlayers})
               </h3>
               <div className="flex items-center gap-2">
-                {isDeveloper && botTestMode && !isFull && (
-                  <button
-                    onClick={() => {
-                      setIsSpawning(true);
-                      soundService.playMagic();
-                      multiplayerService.spawnAsta(roomId);
-                      setTimeout(() => setIsSpawning(false), 1000);
-                    }}
-                    disabled={isSpawning}
-                    className="text-[8px] sm:text-[9px] font-black bg-blue-500/20 text-blue-400 border border-blue-500/30 px-2 py-1 rounded-md uppercase tracking-widest hover:bg-blue-500/30 transition-colors flex items-center gap-1.5"
-                  >
-                    {isSpawning ? <Loader2 size={10} className="animate-spin" /> : <Zap size={10} className="fill-current" />}
-                    Summon Asta
-                  </button>
-                )}
                 {isFull && <span className="text-[9px] font-black bg-green-500/20 text-green-500 px-2 py-1 rounded-md uppercase tracking-widest">Complete</span>}
               </div>
             </div>

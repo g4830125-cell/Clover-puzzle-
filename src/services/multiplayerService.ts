@@ -14,12 +14,14 @@ class MultiplayerService {
     console.log('Connecting to multiplayer at:', url);
 
     this.socket = io(url, {
-      timeout: 10000,
-      reconnectionAttempts: 10,
+      timeout: 20000,
+      reconnectionAttempts: 15,
       reconnectionDelay: 1000,
+      reconnectionDelayMax: 5000,
       transports: ['websocket', 'polling'],
       autoConnect: true,
-      secure: url.startsWith('https')
+      secure: url.startsWith('https') || (typeof window !== 'undefined' && window.location.protocol === 'https:'),
+      rejectUnauthorized: false // Useful for self-signed certs in some dev/preview environments
     });
 
     this.socket.onAny((event, ...args) => {
@@ -85,10 +87,6 @@ class MultiplayerService {
 
   leaveRitual(roomId: string) {
     this.socket?.emit('leave_ritual', { roomId });
-  }
-
-  spawnAsta(roomId: string) {
-    this.socket?.emit('spawn_asta', { roomId });
   }
 
   on(event: string, callback: (data: any) => void) {

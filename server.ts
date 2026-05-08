@@ -25,12 +25,6 @@ async function loadInitialData() {
 
     const socialContent = fs.readFileSync(SOCIAL_FILE, "utf-8");
     socialCache = JSON.parse(socialContent || "{\"friends\":{},\"requests\":{}}");
-
-    // Ensure Asta exists
-    if (!dataCache.some((u: any) => u.userId === 'bot_asta')) {
-      dataCache.push({ userId: 'bot_asta', name: 'Asta (Test Bot)', level: 42, updatedAt: new Date().toISOString(), isBot: true });
-      fs.writeFileSync(DATA_FILE, JSON.stringify(dataCache, null, 2));
-    }
   } catch (err) {
     console.error("Error loading initial data:", err);
   }
@@ -55,6 +49,7 @@ async function saveSocial() {
 async function startServer() {
   await loadInitialData();
   const app = express();
+  app.set('trust proxy', 1); // Trust first proxy (e.g. Cloud Run, Netlify)
   const httpServer = createServer(app);
   const io = new Server(httpServer, {
     cors: {
@@ -446,60 +441,10 @@ async function startServer() {
       }
     });
 
-    socket.on("spawn_asta", ({ roomId }) => {
-      const room = rooms[roomId];
-      if (!room || room.status !== 'waiting') return;
-
-      const email = (socket as any).userEmail;
-      if (email !== 'g4830125@gmail.com') return; // Developer only
-
-      const botId = 'bot_asta';
-      if (room.players.some(p => p.userId === botId)) return;
-
-      const maxPlayers = room.type === '1v1' ? 2 : 4;
-      if (room.players.length >= maxPlayers) return;
-
-      let team: 'A' | 'B' | undefined;
-      if (room.type === '2v2') {
-        const teamA = room.players.filter(p => p.team === 'A').length;
-        const teamB = room.players.filter(p => p.team === 'B').length;
-        team = teamA <= teamB ? 'A' : 'B';
-      } else {
-        team = room.players.length === 0 ? 'A' : 'B';
-      }
-
-      const p: Player = {
-        id: botId,
-        userId: botId,
-        name: 'Asta',
-        socketId: 'bot_asta_s',
-        chances: 3,
-        score: 0,
-        isReady: true,
-        team,
-        isBot: true
-      };
-
-      room.players.push(p);
-      io.to(roomId).emit("ritual_updated", {
-        players: room.players.map(p => ({
-          userId: p.userId,
-          name: p.name,
-          team: p.team,
-          socketId: p.socketId
-        }))
-      });
-      console.log(`Bot Asta spawned in room ${roomId}`);
-    });
-
     socket.on("search_users", ({ query }, callback) => {
       try {
         const results = dataCache
           .filter((u: any) => {
-            // Hide specific test bot accounts from general search
-            if (u.userId === 'bot_asta') {
-              return (socket as any).userEmail === 'g4830125@gmail.com';
-            }
             return u.name.toLowerCase().includes(query.toLowerCase()) || 
                    u.userId.toLowerCase().includes(query.toLowerCase());
           })
@@ -542,21 +487,6 @@ async function startServer() {
         const toSocketId = userSockets.get(toId);
         if (toSocketId) {
           io.to(toSocketId).emit("friend_request_received", request);
-        } else if (toId === 'bot_asta') {
-          // Auto-accept after a delay
-          setTimeout(async () => {
-            if (!socialCache.friends[fromId]) socialCache.friends[fromId] = [];
-            if (!socialCache.friends['bot_asta']) socialCache.friends['bot_asta'] = [];
-            
-            if (!socialCache.friends[fromId].includes('bot_asta')) socialCache.friends[fromId].push('bot_asta');
-            if (!socialCache.friends['bot_asta'].includes(fromId)) socialCache.friends['bot_asta'].push(fromId);
-            
-            // Remove request
-            socialCache.requests['bot_asta'] = (socialCache.requests['bot_asta'] || []).filter((r: any) => r.fromId !== fromId);
-            
-            await saveSocial();
-            socket.emit("friend_added", { userId: 'bot_asta' });
-          }, 1500);
         }
       } catch (err) {}
     });
@@ -623,27 +553,6 @@ async function startServer() {
           mode,
           timestamp: new Date().toISOString()
         });
-      } else if (toId === 'bot_asta') {
-        // Auto-accept after a moment
-        setTimeout(() => {
-          socket.emit("game_invite_received", {
-            id: `invite_asta_${Date.now()}`,
-            fromId: 'bot_asta',
-            fromName: 'Asta',
-            mode,
-            timestamp: new Date().toISOString(),
-            isBotResponse: true
-          });
-          
-          // Actually we can just trigger the match found logic directly
-          handleInviteAccept({
-            id: `invite_asta_${Date.now()}`,
-            fromId: fromId,
-            fromName: (socket as any).userData.name,
-            mode,
-            timestamp: new Date().toISOString()
-          }, 'bot_asta', socket);
-        }, 1200);
       }
     });
 
@@ -652,29 +561,15 @@ async function startServer() {
     });
 
     function handleInviteAccept(invite: any, currentUserId: string, currentSocket: any) {
-      const isAstaMatch = invite.fromId === 'bot_asta' || currentUserId === 'bot_asta';
-      
-      let otherSocketId = userSockets.get(invite.fromId === currentUserId ? 'bot_asta' : invite.fromId);
-      
-      // If it's Asta, we just need the players list to include Asta
+      // If it's a match, we need the players list
       const players: any[] = [];
       
-      if (invite.fromId === 'bot_asta') {
-        players.push({
-          id: 'bot_asta', userId: 'bot_asta', name: 'Asta', socketId: 'bot_asta_s', chances: 3, score: 0, isReady: true, team: invite.mode === '2v2' ? 'A' : 'A', isBot: true
-        });
-        players.push({
+      players.push({
+        id: invite.fromId, userId: invite.fromId, name: invite.fromName, socketId: userSockets.get(invite.fromId), chances: 3, score: 0, isReady: true, team: invite.mode === '2v2' ? 'A' : 'A', isBot: false
+      });
+      players.push({
           id: currentUserId, userId: currentUserId, name: (currentSocket as any).userData.name, socketId: currentSocket.id, chances: 3, score: 0, isReady: true, team: invite.mode === '2v2' ? 'A' : 'B', isBot: false
-        });
-      } else {
-        players.push({
-          id: invite.fromId, userId: invite.fromId, name: invite.fromName, socketId: userSockets.get(invite.fromId) || 'bot_asta_s', chances: 3, score: 0, isReady: true, team: invite.mode === '2v2' ? 'A' : 'A', isBot: invite.fromId === 'bot_asta'
-        });
-        const targetId = currentUserId === invite.fromId ? 'bot_asta' : currentUserId;
-        players.push({
-           id: targetId, userId: targetId, name: targetId === 'bot_asta' ? 'Asta' : (currentSocket as any).userData.name, socketId: userSockets.get(targetId) || 'bot_asta_s', chances: 3, score: 0, isReady: true, team: invite.mode === '2v2' ? 'A' : 'B', isBot: targetId === 'bot_asta'
-        });
-      }
+      });
 
       // Add bots if 2v2 to fill slots immediately
       if (invite.mode === '2v2') {
