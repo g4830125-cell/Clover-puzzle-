@@ -51,9 +51,9 @@ export default function App() {
   const GUIDED_HINT_COST = 1000;
 
   const images = {
-    mentor: '/magic_knight_mentor.png',
-    kingdom: '/arcane_kingdom_bg.png',
-    library: '/wizard_tower_library.png'
+    mentor: './magic_knight_mentor.png',
+    kingdom: './arcane_kingdom_bg.png',
+    library: './wizard_tower_library.png'
   };
 
   const useHint = () => {
